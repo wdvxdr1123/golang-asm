@@ -9,8 +9,8 @@
 package arch
 
 import (
-	"github.com/twitchyliquid64/golang-asm/obj"
-	"github.com/twitchyliquid64/golang-asm/obj/riscv"
+	"github.com/wdvxdr1123/golang-asm/obj"
+	"github.com/wdvxdr1123/golang-asm/obj/riscv"
 )
 
 // IsRISCV64AMO reports whether the op (as defined by a riscv.A*

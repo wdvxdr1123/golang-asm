@@ -9,7 +9,7 @@
 package arch
 
 import (
-	"github.com/twitchyliquid64/golang-asm/obj/s390x"
+	"github.com/wdvxdr1123/golang-asm/obj/s390x"
 )
 
 func jumpS390x(word string) bool {

@@ -11,8 +11,8 @@ package arch
 import (
 	"strings"
 
-	"github.com/twitchyliquid64/golang-asm/obj"
-	"github.com/twitchyliquid64/golang-asm/obj/arm"
+	"github.com/wdvxdr1123/golang-asm/obj"
+	"github.com/wdvxdr1123/golang-asm/obj/arm"
 )
 
 var armLS = map[string]uint8{

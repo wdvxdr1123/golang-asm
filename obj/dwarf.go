@@ -7,9 +7,9 @@
 package obj
 
 import (
-	"github.com/twitchyliquid64/golang-asm/dwarf"
-	"github.com/twitchyliquid64/golang-asm/objabi"
-	"github.com/twitchyliquid64/golang-asm/src"
+	"github.com/wdvxdr1123/golang-asm/dwarf"
+	"github.com/wdvxdr1123/golang-asm/objabi"
+	"github.com/wdvxdr1123/golang-asm/src"
 	"fmt"
 	"sort"
 	"sync"
@@ -46,12 +46,12 @@ func (ctxt *Link) generateDebugLinesSymbol(s, lines *LSym) {
 	// we expect at the start of a new sequence.
 	stmt := true
 	line := int64(1)
-	pc := s.Func.Text.Pc
+	pc := s.Func().Text.Pc
 	var lastpc int64 // last PC written to line table, not last PC in func
 	name := ""
 	prologue, wrotePrologue := false, false
 	// Walk the progs, generating the DWARF table.
-	for p := s.Func.Text; p != nil; p = p.Link {
+	for p := s.Func().Text; p != nil; p = p.Link {
 		prologue = prologue || (p.Pos.Xlogue() == src.PosPrologueEnd)
 		// If we're not at a real instruction, keep looping!
 		if p.Pos.Line() == 0 || (p.Link != nil && p.Link.Pc == p.Pc) {
@@ -103,8 +103,9 @@ func (ctxt *Link) generateDebugLinesSymbol(s, lines *LSym) {
 	// text address before the end sequence op. If this isn't done,
 	// GDB will assign a line number of zero the last row in the line
 	// table, which we don't want.
-	lastlen := uint64(s.Size - (lastpc - s.Func.Text.Pc))
-	putpclcdelta(ctxt, dctxt, lines, lastlen, 0)
+	lastlen := uint64(s.Size - (lastpc - s.Func().Text.Pc))
+	dctxt.AddUint8(lines, dwarf.DW_LNS_advance_pc)
+	dwarf.Uleb128put(dctxt, lines, int64(lastlen))
 	dctxt.AddUint8(lines, 0) // start extended opcode
 	dwarf.Uleb128put(dctxt, lines, 1)
 	dctxt.AddUint8(lines, dwarf.DW_LNE_end_sequence)
@@ -301,26 +302,27 @@ func (ctxt *Link) dwarfSym(s *LSym) (dwarfInfoSym, dwarfLocSym, dwarfRangesSym, 
 	if s.Type != objabi.STEXT {
 		ctxt.Diag("dwarfSym of non-TEXT %v", s)
 	}
-	if s.Func.dwarfInfoSym == nil {
-		s.Func.dwarfInfoSym = &LSym{
+	fn := s.Func()
+	if fn.dwarfInfoSym == nil {
+		fn.dwarfInfoSym = &LSym{
 			Type: objabi.SDWARFFCN,
 		}
 		if ctxt.Flag_locationlists {
-			s.Func.dwarfLocSym = &LSym{
+			fn.dwarfLocSym = &LSym{
 				Type: objabi.SDWARFLOC,
 			}
 		}
-		s.Func.dwarfRangesSym = &LSym{
+		fn.dwarfRangesSym = &LSym{
 			Type: objabi.SDWARFRANGE,
 		}
-		s.Func.dwarfDebugLinesSym = &LSym{
+		fn.dwarfDebugLinesSym = &LSym{
 			Type: objabi.SDWARFLINES,
 		}
 		if s.WasInlined() {
-			s.Func.dwarfAbsFnSym = ctxt.DwFixups.AbsFuncDwarfSym(s)
+			fn.dwarfAbsFnSym = ctxt.DwFixups.AbsFuncDwarfSym(s)
 		}
 	}
-	return s.Func.dwarfInfoSym, s.Func.dwarfLocSym, s.Func.dwarfRangesSym, s.Func.dwarfAbsFnSym, s.Func.dwarfDebugLinesSym
+	return fn.dwarfInfoSym, fn.dwarfLocSym, fn.dwarfRangesSym, fn.dwarfAbsFnSym, fn.dwarfDebugLinesSym
 }
 
 func (s *LSym) Length(dwarfContext interface{}) int64 {
@@ -331,7 +333,7 @@ func (s *LSym) Length(dwarfContext interface{}) int64 {
 // first instruction (prog) of the specified function. This will
 // presumably be the file in which the function is defined.
 func (ctxt *Link) fileSymbol(fn *LSym) *LSym {
-	p := fn.Func.Text
+	p := fn.Func().Text
 	if p != nil {
 		f, _ := linkgetlineFromPos(ctxt, p.Pos)
 		fsym := ctxt.Lookup(f)
@@ -376,9 +378,9 @@ func (ctxt *Link) populateDWARF(curfn interface{}, s *LSym, myimportpath string)
 		if err != nil {
 			ctxt.Diag("emitting DWARF for %s failed: %v", s.Name, err)
 		}
-		err = dwarf.PutConcreteFunc(dwctxt, fnstate)
+		err = dwarf.PutConcreteFunc(dwctxt, fnstate, s.Wrapper())
 	} else {
-		err = dwarf.PutDefaultFunc(dwctxt, fnstate)
+		err = dwarf.PutDefaultFunc(dwctxt, fnstate, s.Wrapper())
 	}
 	if err != nil {
 		ctxt.Diag("emitting DWARF for %s failed: %v", s.Name, err)
@@ -400,13 +402,38 @@ func (ctxt *Link) DwarfIntConst(myimportpath, name, typename string, val int64) 
 	dwarf.PutIntConst(dwCtxt{ctxt}, s, ctxt.Lookup(dwarf.InfoPrefix+typename), myimportpath+"."+name, val)
 }
 
+// DwarfGlobal creates a link symbol containing a DWARF entry for
+// a global variable.
+func (ctxt *Link) DwarfGlobal(myimportpath, typename string, varSym *LSym) {
+	if myimportpath == "" || varSym.Local() {
+		return
+	}
+	var varname string
+	if varSym.Pkg == "_" {
+		// The frontend uses package "_" to mark symbols that should not
+		// be referenced by index, e.g. linkname'd symbols.
+		varname = varSym.Name
+	} else {
+		// Convert "".<name> into a fully qualified package.sym name.
+		varname = objabi.PathToPrefix(myimportpath) + varSym.Name[len(`""`):]
+	}
+	dieSymName := dwarf.InfoPrefix + varname
+	dieSym := ctxt.LookupInit(dieSymName, func(s *LSym) {
+		s.Type = objabi.SDWARFVAR
+		s.Set(AttrDuplicateOK, true) // needed for shared linkage
+		ctxt.Data = append(ctxt.Data, s)
+	})
+	typeSym := ctxt.Lookup(dwarf.InfoPrefix + typename)
+	dwarf.PutGlobal(dwCtxt{ctxt}, dieSym, typeSym, varSym, varname)
+}
+
 func (ctxt *Link) DwarfAbstractFunc(curfn interface{}, s *LSym, myimportpath string) {
 	absfn := ctxt.DwFixups.AbsFuncDwarfSym(s)
 	if absfn.Size != 0 {
 		ctxt.Diag("internal error: DwarfAbstractFunc double process %v", s)
 	}
-	if s.Func == nil {
-		s.Func = new(FuncInfo)
+	if s.Func() == nil {
+		s.NewFuncInfo()
 	}
 	scopes, _ := ctxt.DebugInfo(s, absfn, curfn)
 	dwctxt := dwCtxt{ctxt}
@@ -527,8 +554,8 @@ func (ft *DwarfFixupTable) SetPrecursorFunc(s *LSym, fn interface{}) {
 	// wrapper generation as opposed to the main inlining phase) it's
 	// possible that we didn't cache the abstract function sym for the
 	// text symbol -- do so now if needed. See issue 38068.
-	if s.Func != nil && s.Func.dwarfAbsFnSym == nil {
-		s.Func.dwarfAbsFnSym = absfn
+	if fn := s.Func(); fn != nil && fn.dwarfAbsFnSym == nil {
+		fn.dwarfAbsFnSym = absfn
 	}
 
 	ft.precursor[s] = fnState{precursor: fn, absfn: absfn}

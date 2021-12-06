@@ -5,7 +5,7 @@
 package s390x
 
 import (
-	"github.com/twitchyliquid64/golang-asm/obj"
+	"github.com/wdvxdr1123/golang-asm/obj"
 )
 
 // This file contains utility functions for use when

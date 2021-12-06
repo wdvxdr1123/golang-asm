@@ -28,7 +28,7 @@
 
 package riscv
 
-import "github.com/twitchyliquid64/golang-asm/obj"
+import "github.com/wdvxdr1123/golang-asm/obj"
 
 //go:generate go run ../stringer.go -i $GOFILE -o anames.go -p riscv
 
@@ -109,7 +109,7 @@ const (
 	REG_RA   = REG_X1 // aka REG_LR
 	REG_SP   = REG_X2
 	REG_GP   = REG_X3 // aka REG_SB
-	REG_TP   = REG_X4 // aka REG_G
+	REG_TP   = REG_X4
 	REG_T0   = REG_X5
 	REG_T1   = REG_X6
 	REG_T2   = REG_X7
@@ -132,17 +132,17 @@ const (
 	REG_S8   = REG_X24
 	REG_S9   = REG_X25
 	REG_S10  = REG_X26
-	REG_S11  = REG_X27
+	REG_S11  = REG_X27 // aka REG_G
 	REG_T3   = REG_X28
 	REG_T4   = REG_X29
 	REG_T5   = REG_X30
 	REG_T6   = REG_X31 // aka REG_TMP
 
 	// Go runtime register names.
-	REG_G    = REG_TP // G pointer.
-	REG_CTXT = REG_S4 // Context for closures.
-	REG_LR   = REG_RA // Link register.
-	REG_TMP  = REG_T6 // Reserved for assembler use.
+	REG_G    = REG_S11 // G pointer.
+	REG_CTXT = REG_S4  // Context for closures.
+	REG_LR   = REG_RA  // Link register.
+	REG_TMP  = REG_T6  // Reserved for assembler use.
 
 	// ABI names for floating point registers.
 	REG_FT0  = REG_F0
@@ -183,7 +183,7 @@ const (
 	REGG  = REG_G
 )
 
-// https://github.com/riscv/riscv-elf-psabi-doc/blob/master/riscv-elf.md#dwarf-register-numbers
+// https://github.com/riscv-non-isa/riscv-elf-psabi-doc/blob/master/riscv-dwarf.adoc#dwarf-register-numbers
 var RISCV64DWARFRegisters = map[int16]int16{
 	// Integer Registers.
 	REG_X0:  0,
@@ -256,15 +256,23 @@ var RISCV64DWARFRegisters = map[int16]int16{
 
 // Prog.Mark flags.
 const (
+	// USES_REG_TMP indicates that a machine instruction generated from the
+	// corresponding *obj.Prog uses the temporary register.
+	USES_REG_TMP = 1 << iota
+
+	// NEED_CALL_RELOC is set on JAL instructions to indicate that a
+	// R_RISCV_CALL relocation is needed.
+	NEED_CALL_RELOC
+
 	// NEED_PCREL_ITYPE_RELOC is set on AUIPC instructions to indicate that
 	// it is the first instruction in an AUIPC + I-type pair that needs a
 	// R_RISCV_PCREL_ITYPE relocation.
-	NEED_PCREL_ITYPE_RELOC = 1 << 0
+	NEED_PCREL_ITYPE_RELOC
 
 	// NEED_PCREL_STYPE_RELOC is set on AUIPC instructions to indicate that
 	// it is the first instruction in an AUIPC + S-type pair that needs a
 	// R_RISCV_PCREL_STYPE relocation.
-	NEED_PCREL_STYPE_RELOC = 1 << 1
+	NEED_PCREL_STYPE_RELOC
 )
 
 // RISC-V mnemonics, as defined in the "opcodes" and "opcodes-pseudo" files
@@ -586,6 +594,8 @@ const (
 	ABLEZ
 	ABLTZ
 	ABNEZ
+	AFABSD
+	AFABSS
 	AFNEGD
 	AFNEGS
 	AFNED
@@ -626,6 +636,10 @@ var unaryDst = map[obj.As]bool{
 
 // Instruction encoding masks.
 const (
+	// JTypeImmMask is a mask including only the immediate portion of
+	// J-type instructions.
+	JTypeImmMask = 0xfffff000
+
 	// ITypeImmMask is a mask including only the immediate portion of
 	// I-type instructions.
 	ITypeImmMask = 0xfff00000
@@ -637,8 +651,4 @@ const (
 	// UTypeImmMask is a mask including only the immediate portion of
 	// U-type instructions.
 	UTypeImmMask = 0xfffff000
-
-	// UJTypeImmMask is a mask including only the immediate portion of
-	// UJ-type instructions.
-	UJTypeImmMask = UTypeImmMask
 )

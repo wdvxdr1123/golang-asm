@@ -5,7 +5,7 @@
 package obj
 
 import (
-	"github.com/twitchyliquid64/golang-asm/objabi"
+	"github.com/wdvxdr1123/golang-asm/objabi"
 	"fmt"
 	"strings"
 )
@@ -54,11 +54,28 @@ func Flushplist(ctxt *Link, plist *Plist, newprog ProgAlloc, myimportpath string
 			if curtext == nil { // func _() {}
 				continue
 			}
-			if p.To.Sym.Name == "go_args_stackmap" {
+			switch p.To.Sym.Name {
+			case "go_args_stackmap":
 				if p.From.Type != TYPE_CONST || p.From.Offset != objabi.FUNCDATA_ArgsPointerMaps {
 					ctxt.Diag("FUNCDATA use of go_args_stackmap(SB) without FUNCDATA_ArgsPointerMaps")
 				}
 				p.To.Sym = ctxt.LookupDerived(curtext, curtext.Name+".args_stackmap")
+			case "no_pointers_stackmap":
+				if p.From.Type != TYPE_CONST || p.From.Offset != objabi.FUNCDATA_LocalsPointerMaps {
+					ctxt.Diag("FUNCDATA use of no_pointers_stackmap(SB) without FUNCDATA_LocalsPointerMaps")
+				}
+				// funcdata for functions with no local variables in frame.
+				// Define two zero-length bitmaps, because the same index is used
+				// for the local variables as for the argument frame, and assembly
+				// frames have two argument bitmaps, one without results and one with results.
+				// Write []uint32{2, 0}.
+				b := make([]byte, 8)
+				ctxt.Arch.ByteOrder.PutUint32(b, 2)
+				s := ctxt.GCLocalsSym(b)
+				if !s.OnList() {
+					ctxt.Globl(s, int64(len(s.P)), int(RODATA|DUPOK))
+				}
+				p.To.Sym = s
 			}
 
 		}
@@ -75,33 +92,60 @@ func Flushplist(ctxt *Link, plist *Plist, newprog ProgAlloc, myimportpath string
 		newprog = ctxt.NewProg
 	}
 
-	// Add reference to Go arguments for C or assembly functions without them.
-	for _, s := range text {
-		if !strings.HasPrefix(s.Name, "\"\".") {
-			continue
-		}
-		found := false
-		for p := s.Func.Text; p != nil; p = p.Link {
-			if p.As == AFUNCDATA && p.From.Type == TYPE_CONST && p.From.Offset == objabi.FUNCDATA_ArgsPointerMaps {
-				found = true
-				break
+	// Add reference to Go arguments for assembly functions without them.
+	if ctxt.IsAsm {
+		for _, s := range text {
+			if !strings.HasPrefix(s.Name, "\"\".") {
+				continue
 			}
-		}
-
-		if !found {
-			p := Appendp(s.Func.Text, newprog)
-			p.As = AFUNCDATA
-			p.From.Type = TYPE_CONST
-			p.From.Offset = objabi.FUNCDATA_ArgsPointerMaps
-			p.To.Type = TYPE_MEM
-			p.To.Name = NAME_EXTERN
-			p.To.Sym = ctxt.LookupDerived(s, s.Name+".args_stackmap")
+			// The current args_stackmap generation in the compiler assumes
+			// that the function in question is ABI0, so avoid introducing
+			// an args_stackmap reference if the func is not ABI0 (better to
+			// have no stackmap than an incorrect/lying stackmap).
+			if s.ABI() != ABI0 {
+				continue
+			}
+			foundArgMap, foundArgInfo := false, false
+			for p := s.Func().Text; p != nil; p = p.Link {
+				if p.As == AFUNCDATA && p.From.Type == TYPE_CONST {
+					if p.From.Offset == objabi.FUNCDATA_ArgsPointerMaps {
+						foundArgMap = true
+					}
+					if p.From.Offset == objabi.FUNCDATA_ArgInfo {
+						foundArgInfo = true
+					}
+					if foundArgMap && foundArgInfo {
+						break
+					}
+				}
+			}
+			if !foundArgMap {
+				p := Appendp(s.Func().Text, newprog)
+				p.As = AFUNCDATA
+				p.From.Type = TYPE_CONST
+				p.From.Offset = objabi.FUNCDATA_ArgsPointerMaps
+				p.To.Type = TYPE_MEM
+				p.To.Name = NAME_EXTERN
+				p.To.Sym = ctxt.LookupDerived(s, s.Name+".args_stackmap")
+			}
+			if !foundArgInfo {
+				p := Appendp(s.Func().Text, newprog)
+				p.As = AFUNCDATA
+				p.From.Type = TYPE_CONST
+				p.From.Offset = objabi.FUNCDATA_ArgInfo
+				p.To.Type = TYPE_MEM
+				p.To.Name = NAME_EXTERN
+				p.To.Sym = ctxt.LookupDerived(s, fmt.Sprintf("%s.arginfo%d", s.Name, s.ABI()))
+			}
 		}
 	}
 
 	// Turn functions into machine code images.
 	for _, s := range text {
 		mkfwd(s)
+		if ctxt.Arch.ErrorCheck != nil {
+			ctxt.Arch.ErrorCheck(ctxt, s)
+		}
 		linkpatch(ctxt, s, newprog)
 		ctxt.Arch.Preprocess(ctxt, s, newprog)
 		ctxt.Arch.Assemble(ctxt, s, newprog)
@@ -120,28 +164,40 @@ func (ctxt *Link) InitTextSym(s *LSym, flag int) {
 		// func _() { }
 		return
 	}
-	if s.Func != nil {
+	if s.Func() != nil {
 		ctxt.Diag("InitTextSym double init for %s", s.Name)
 	}
-	s.Func = new(FuncInfo)
+	s.NewFuncInfo()
 	if s.OnList() {
 		ctxt.Diag("symbol %s listed multiple times", s.Name)
 	}
 	name := strings.Replace(s.Name, "\"\"", ctxt.Pkgpath, -1)
-	s.Func.FuncID = objabi.GetFuncID(name, flag&WRAPPER != 0)
+	s.Func().FuncID = objabi.GetFuncID(name, flag&WRAPPER != 0 || flag&ABIWRAPPER != 0)
+	s.Func().FuncFlag = ctxt.toFuncFlag(flag)
 	s.Set(AttrOnList, true)
 	s.Set(AttrDuplicateOK, flag&DUPOK != 0)
 	s.Set(AttrNoSplit, flag&NOSPLIT != 0)
 	s.Set(AttrReflectMethod, flag&REFLECTMETHOD != 0)
 	s.Set(AttrWrapper, flag&WRAPPER != 0)
+	s.Set(AttrABIWrapper, flag&ABIWRAPPER != 0)
 	s.Set(AttrNeedCtxt, flag&NEEDCTXT != 0)
 	s.Set(AttrNoFrame, flag&NOFRAME != 0)
-	s.Set(AttrTopFrame, flag&TOPFRAME != 0)
 	s.Type = objabi.STEXT
 	ctxt.Text = append(ctxt.Text, s)
 
 	// Set up DWARF entries for s
 	ctxt.dwarfSym(s)
+}
+
+func (ctxt *Link) toFuncFlag(flag int) objabi.FuncFlag {
+	var out objabi.FuncFlag
+	if flag&TOPFRAME != 0 {
+		out |= objabi.FuncFlag_TOPFRAME
+	}
+	if ctxt.IsAsm {
+		out |= objabi.FuncFlag_ASM
+	}
+	return out
 }
 
 func (ctxt *Link) Globl(s *LSym, size int64, flag int) {
@@ -178,14 +234,14 @@ func (ctxt *Link) Globl(s *LSym, size int64, flag int) {
 // Prog generated.
 func (ctxt *Link) EmitEntryLiveness(s *LSym, p *Prog, newprog ProgAlloc) *Prog {
 	pcdata := ctxt.EmitEntryStackMap(s, p, newprog)
-	pcdata = ctxt.EmitEntryRegMap(s, pcdata, newprog)
+	pcdata = ctxt.EmitEntryUnsafePoint(s, pcdata, newprog)
 	return pcdata
 }
 
 // Similar to EmitEntryLiveness, but just emit stack map.
 func (ctxt *Link) EmitEntryStackMap(s *LSym, p *Prog, newprog ProgAlloc) *Prog {
 	pcdata := Appendp(p, newprog)
-	pcdata.Pos = s.Func.Text.Pos
+	pcdata.Pos = s.Func().Text.Pos
 	pcdata.As = APCDATA
 	pcdata.From.Type = TYPE_CONST
 	pcdata.From.Offset = objabi.PCDATA_StackMapIndex
@@ -195,13 +251,13 @@ func (ctxt *Link) EmitEntryStackMap(s *LSym, p *Prog, newprog ProgAlloc) *Prog {
 	return pcdata
 }
 
-// Similar to EmitEntryLiveness, but just emit register map.
-func (ctxt *Link) EmitEntryRegMap(s *LSym, p *Prog, newprog ProgAlloc) *Prog {
+// Similar to EmitEntryLiveness, but just emit unsafe point map.
+func (ctxt *Link) EmitEntryUnsafePoint(s *LSym, p *Prog, newprog ProgAlloc) *Prog {
 	pcdata := Appendp(p, newprog)
-	pcdata.Pos = s.Func.Text.Pos
+	pcdata.Pos = s.Func().Text.Pos
 	pcdata.As = APCDATA
 	pcdata.From.Type = TYPE_CONST
-	pcdata.From.Offset = objabi.PCDATA_RegMapIndex
+	pcdata.From.Offset = objabi.PCDATA_UnsafePoint
 	pcdata.To.Type = TYPE_CONST
 	pcdata.To.Offset = -1
 
@@ -216,9 +272,9 @@ func (ctxt *Link) StartUnsafePoint(p *Prog, newprog ProgAlloc) *Prog {
 	pcdata := Appendp(p, newprog)
 	pcdata.As = APCDATA
 	pcdata.From.Type = TYPE_CONST
-	pcdata.From.Offset = objabi.PCDATA_RegMapIndex
+	pcdata.From.Offset = objabi.PCDATA_UnsafePoint
 	pcdata.To.Type = TYPE_CONST
-	pcdata.To.Offset = objabi.PCDATA_RegMapUnsafe
+	pcdata.To.Offset = objabi.PCDATA_UnsafePointUnsafe
 
 	return pcdata
 }
@@ -231,7 +287,7 @@ func (ctxt *Link) EndUnsafePoint(p *Prog, newprog ProgAlloc, oldval int64) *Prog
 	pcdata := Appendp(p, newprog)
 	pcdata.As = APCDATA
 	pcdata.From.Type = TYPE_CONST
-	pcdata.From.Offset = objabi.PCDATA_RegMapIndex
+	pcdata.From.Offset = objabi.PCDATA_UnsafePoint
 	pcdata.To.Type = TYPE_CONST
 	pcdata.To.Offset = oldval
 
@@ -257,11 +313,11 @@ func MarkUnsafePoints(ctxt *Link, p0 *Prog, newprog ProgAlloc, isUnsafePoint, is
 	prevPcdata := int64(-1) // entry PC data value
 	prevRestart := int64(0)
 	for p := prev.Link; p != nil; p, prev = p.Link, p {
-		if p.As == APCDATA && p.From.Offset == objabi.PCDATA_RegMapIndex {
+		if p.As == APCDATA && p.From.Offset == objabi.PCDATA_UnsafePoint {
 			prevPcdata = p.To.Offset
 			continue
 		}
-		if prevPcdata == objabi.PCDATA_RegMapUnsafe {
+		if prevPcdata == objabi.PCDATA_UnsafePointUnsafe {
 			continue // already unsafe
 		}
 		if isUnsafePoint(p) {
@@ -288,7 +344,7 @@ func MarkUnsafePoints(ctxt *Link, p0 *Prog, newprog ProgAlloc, isUnsafePoint, is
 			q := Appendp(prev, newprog)
 			q.As = APCDATA
 			q.From.Type = TYPE_CONST
-			q.From.Offset = objabi.PCDATA_RegMapIndex
+			q.From.Offset = objabi.PCDATA_UnsafePoint
 			q.To.Type = TYPE_CONST
 			q.To.Offset = val
 			q.Pc = p.Pc
@@ -305,7 +361,7 @@ func MarkUnsafePoints(ctxt *Link, p0 *Prog, newprog ProgAlloc, isUnsafePoint, is
 			p = Appendp(p, newprog)
 			p.As = APCDATA
 			p.From.Type = TYPE_CONST
-			p.From.Offset = objabi.PCDATA_RegMapIndex
+			p.From.Offset = objabi.PCDATA_UnsafePoint
 			p.To.Type = TYPE_CONST
 			p.To.Offset = prevPcdata
 			p.Pc = p.Link.Pc

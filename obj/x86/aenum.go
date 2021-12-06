@@ -2,7 +2,7 @@
 
 package x86
 
-import "github.com/twitchyliquid64/golang-asm/obj"
+import "github.com/wdvxdr1123/golang-asm/obj"
 
 //go:generate go run ../stringer.go -i $GOFILE -o anames.go -p x86
 
@@ -496,9 +496,9 @@ const (
 	AMOVAPD
 	AMOVAPS
 	AMOVB
-	AMOVBELL
-	AMOVBEQQ
-	AMOVBEWW
+	AMOVBEL
+	AMOVBEQ
+	AMOVBEW
 	AMOVBLSX
 	AMOVBLZX
 	AMOVBQSX

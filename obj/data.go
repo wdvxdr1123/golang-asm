@@ -32,7 +32,7 @@
 package obj
 
 import (
-	"github.com/twitchyliquid64/golang-asm/objabi"
+	"github.com/wdvxdr1123/golang-asm/objabi"
 	"log"
 	"math"
 )
@@ -133,6 +133,13 @@ func (s *LSym) writeAddr(ctxt *Link, off int64, siz int, rsym *LSym, roff int64,
 // rsym and roff specify the relocation for the address.
 func (s *LSym) WriteAddr(ctxt *Link, off int64, siz int, rsym *LSym, roff int64) {
 	s.writeAddr(ctxt, off, siz, rsym, roff, objabi.R_ADDR)
+}
+
+// WriteWeakAddr writes an address of size siz into s at offset off.
+// rsym and roff specify the relocation for the address.
+// This is a weak reference.
+func (s *LSym) WriteWeakAddr(ctxt *Link, off int64, siz int, rsym *LSym, roff int64) {
+	s.writeAddr(ctxt, off, siz, rsym, roff, objabi.R_WEAKADDR)
 }
 
 // WriteCURelativeAddr writes a pointer-sized address into s at offset off.

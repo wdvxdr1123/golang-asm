@@ -2,7 +2,7 @@
 
 package riscv
 
-import "github.com/twitchyliquid64/golang-asm/obj"
+import "github.com/wdvxdr1123/golang-asm/obj"
 
 var Anames = []string{
 	obj.A_ARCHSPECIFIC: "ADDI",
@@ -236,6 +236,8 @@ var Anames = []string{
 	"BLEZ",
 	"BLTZ",
 	"BNEZ",
+	"FABSD",
+	"FABSS",
 	"FNEGD",
 	"FNEGS",
 	"FNED",

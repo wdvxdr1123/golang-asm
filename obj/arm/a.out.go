@@ -30,7 +30,7 @@
 
 package arm
 
-import "github.com/twitchyliquid64/golang-asm/obj"
+import "github.com/wdvxdr1123/golang-asm/obj"
 
 //go:generate go run ../stringer.go -i $GOFILE -o anames.go -p arm
 
@@ -163,8 +163,8 @@ const (
 	C_SFCON
 	C_LFCON
 
-	C_RACON
-	C_LACON
+	C_RACON /* <=0xff rotated constant offset from auto */
+	C_LACON /* Large Auto CONstant, i.e. large offset from SP */
 
 	C_SBRA
 	C_LBRA

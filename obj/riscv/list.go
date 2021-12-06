@@ -7,7 +7,7 @@ package riscv
 import (
 	"fmt"
 
-	"github.com/twitchyliquid64/golang-asm/obj"
+	"github.com/wdvxdr1123/golang-asm/obj"
 )
 
 func init() {

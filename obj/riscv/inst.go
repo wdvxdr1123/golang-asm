@@ -2,7 +2,7 @@
 
 package riscv
 
-import "github.com/twitchyliquid64/golang-asm/obj"
+import "github.com/wdvxdr1123/golang-asm/obj"
 
 type inst struct {
 	opcode uint32

@@ -5,9 +5,9 @@
 package x86
 
 import (
-	"github.com/twitchyliquid64/golang-asm/obj"
 	"errors"
 	"fmt"
+	"github.com/wdvxdr1123/golang-asm/obj"
 	"strings"
 )
 

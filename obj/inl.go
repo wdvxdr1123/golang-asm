@@ -4,7 +4,7 @@
 
 package obj
 
-import "github.com/twitchyliquid64/golang-asm/src"
+import "github.com/wdvxdr1123/golang-asm/src"
 
 // InlTree is a collection of inlined calls. The Parent field of an
 // InlinedCall is the index of another InlinedCall in InlTree.

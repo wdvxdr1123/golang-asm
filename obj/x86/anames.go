@@ -2,7 +2,7 @@
 
 package x86
 
-import "github.com/twitchyliquid64/golang-asm/obj"
+import "github.com/wdvxdr1123/golang-asm/obj"
 
 var Anames = []string{
 	obj.A_ARCHSPECIFIC: "AAA",
@@ -494,9 +494,9 @@ var Anames = []string{
 	"MOVAPD",
 	"MOVAPS",
 	"MOVB",
-	"MOVBELL",
-	"MOVBEQQ",
-	"MOVBEWW",
+	"MOVBEL",
+	"MOVBEQ",
+	"MOVBEW",
 	"MOVBLSX",
 	"MOVBLZX",
 	"MOVBQSX",

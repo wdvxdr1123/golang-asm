@@ -4,7 +4,7 @@
 
 package wasm
 
-import "github.com/twitchyliquid64/golang-asm/obj"
+import "github.com/wdvxdr1123/golang-asm/obj"
 
 //go:generate go run ../stringer.go -i $GOFILE -o anames.go -p wasm
 

@@ -5,8 +5,8 @@
 package obj
 
 import (
-	"github.com/twitchyliquid64/golang-asm/goobj"
-	"github.com/twitchyliquid64/golang-asm/src"
+	"github.com/wdvxdr1123/golang-asm/goobj"
+	"github.com/wdvxdr1123/golang-asm/src"
 )
 
 // AddImport adds a package to the list of imported packages.

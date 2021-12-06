@@ -30,7 +30,7 @@
 package mips
 
 import (
-	"github.com/twitchyliquid64/golang-asm/obj"
+	"github.com/wdvxdr1123/golang-asm/obj"
 )
 
 //go:generate go run ../stringer.go -i $GOFILE -o anames.go -p mips
@@ -390,6 +390,8 @@ const (
 	AREM
 	AREMU
 	ARFE
+	AROTR
+	AROTRV
 	ASC
 	ASCV
 	ASGT

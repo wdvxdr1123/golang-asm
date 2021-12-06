@@ -3,9 +3,9 @@ package golangasm
 import (
 	"fmt"
 
-	"github.com/twitchyliquid64/golang-asm/asm/arch"
-	"github.com/twitchyliquid64/golang-asm/obj"
-	"github.com/twitchyliquid64/golang-asm/objabi"
+	"github.com/wdvxdr1123/golang-asm/asm/arch"
+	"github.com/wdvxdr1123/golang-asm/obj"
+	"github.com/wdvxdr1123/golang-asm/objabi"
 )
 
 // Builder allows you to assemble a series of instructions.
@@ -59,10 +59,11 @@ func (b *Builder) AddInstruction(p *obj.Prog) {
 
 // Assemble generates the machine code from the given instructions.
 func (b *Builder) Assemble() []byte {
+	var fn interface{} = &obj.FuncInfo{
+		Text: b.first,
+	}
 	s := &obj.LSym{
-		Func: &obj.FuncInfo{
-			Text: b.first,
-		},
+		Extra: &fn,
 	}
 	b.arch.Assemble(b.ctxt, s, b.progAlloc)
 	return s.P
@@ -70,7 +71,7 @@ func (b *Builder) Assemble() []byte {
 
 // NewBuilder constructs an assembler for the given architecture.
 func NewBuilder(archStr string, cacheSize int) (*Builder, error) {
-	a := arch.Set(archStr)
+	a := arch.Set(archStr, false)
 	ctxt := obj.Linknew(a.LinkArch)
 	ctxt.Headtype = objabi.Hlinux
 	ctxt.DiagFunc = func(in string, args ...interface{}) {

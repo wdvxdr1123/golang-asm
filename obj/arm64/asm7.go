@@ -31,9 +31,9 @@
 package arm64
 
 import (
-	"github.com/twitchyliquid64/golang-asm/obj"
-	"github.com/twitchyliquid64/golang-asm/objabi"
 	"fmt"
+	"github.com/wdvxdr1123/golang-asm/obj"
+	"github.com/wdvxdr1123/golang-asm/objabi"
 	"log"
 	"math"
 	"sort"
@@ -80,12 +80,17 @@ type Optab struct {
 }
 
 func IsAtomicInstruction(as obj.As) bool {
-	_, ok := atomicInstructions[as]
-	return ok
+	if _, ok := atomicLDADD[as]; ok {
+		return true
+	}
+	if _, ok := atomicSWP[as]; ok {
+		return true
+	}
+	return false
 }
 
 // known field values of an instruction.
-var atomicInstructions = map[obj.As]uint32{
+var atomicLDADD = map[obj.As]uint32{
 	ALDADDAD:  3<<30 | 0x1c5<<21 | 0x00<<10,
 	ALDADDAW:  2<<30 | 0x1c5<<21 | 0x00<<10,
 	ALDADDAH:  1<<30 | 0x1c5<<21 | 0x00<<10,
@@ -102,22 +107,22 @@ var atomicInstructions = map[obj.As]uint32{
 	ALDADDLW:  2<<30 | 0x1c3<<21 | 0x00<<10,
 	ALDADDLH:  1<<30 | 0x1c3<<21 | 0x00<<10,
 	ALDADDLB:  0<<30 | 0x1c3<<21 | 0x00<<10,
-	ALDANDAD:  3<<30 | 0x1c5<<21 | 0x04<<10,
-	ALDANDAW:  2<<30 | 0x1c5<<21 | 0x04<<10,
-	ALDANDAH:  1<<30 | 0x1c5<<21 | 0x04<<10,
-	ALDANDAB:  0<<30 | 0x1c5<<21 | 0x04<<10,
-	ALDANDALD: 3<<30 | 0x1c7<<21 | 0x04<<10,
-	ALDANDALW: 2<<30 | 0x1c7<<21 | 0x04<<10,
-	ALDANDALH: 1<<30 | 0x1c7<<21 | 0x04<<10,
-	ALDANDALB: 0<<30 | 0x1c7<<21 | 0x04<<10,
-	ALDANDD:   3<<30 | 0x1c1<<21 | 0x04<<10,
-	ALDANDW:   2<<30 | 0x1c1<<21 | 0x04<<10,
-	ALDANDH:   1<<30 | 0x1c1<<21 | 0x04<<10,
-	ALDANDB:   0<<30 | 0x1c1<<21 | 0x04<<10,
-	ALDANDLD:  3<<30 | 0x1c3<<21 | 0x04<<10,
-	ALDANDLW:  2<<30 | 0x1c3<<21 | 0x04<<10,
-	ALDANDLH:  1<<30 | 0x1c3<<21 | 0x04<<10,
-	ALDANDLB:  0<<30 | 0x1c3<<21 | 0x04<<10,
+	ALDCLRAD:  3<<30 | 0x1c5<<21 | 0x04<<10,
+	ALDCLRAW:  2<<30 | 0x1c5<<21 | 0x04<<10,
+	ALDCLRAH:  1<<30 | 0x1c5<<21 | 0x04<<10,
+	ALDCLRAB:  0<<30 | 0x1c5<<21 | 0x04<<10,
+	ALDCLRALD: 3<<30 | 0x1c7<<21 | 0x04<<10,
+	ALDCLRALW: 2<<30 | 0x1c7<<21 | 0x04<<10,
+	ALDCLRALH: 1<<30 | 0x1c7<<21 | 0x04<<10,
+	ALDCLRALB: 0<<30 | 0x1c7<<21 | 0x04<<10,
+	ALDCLRD:   3<<30 | 0x1c1<<21 | 0x04<<10,
+	ALDCLRW:   2<<30 | 0x1c1<<21 | 0x04<<10,
+	ALDCLRH:   1<<30 | 0x1c1<<21 | 0x04<<10,
+	ALDCLRB:   0<<30 | 0x1c1<<21 | 0x04<<10,
+	ALDCLRLD:  3<<30 | 0x1c3<<21 | 0x04<<10,
+	ALDCLRLW:  2<<30 | 0x1c3<<21 | 0x04<<10,
+	ALDCLRLH:  1<<30 | 0x1c3<<21 | 0x04<<10,
+	ALDCLRLB:  0<<30 | 0x1c3<<21 | 0x04<<10,
 	ALDEORAD:  3<<30 | 0x1c5<<21 | 0x08<<10,
 	ALDEORAW:  2<<30 | 0x1c5<<21 | 0x08<<10,
 	ALDEORAH:  1<<30 | 0x1c5<<21 | 0x08<<10,
@@ -150,22 +155,41 @@ var atomicInstructions = map[obj.As]uint32{
 	ALDORLW:   2<<30 | 0x1c3<<21 | 0x0c<<10,
 	ALDORLH:   1<<30 | 0x1c3<<21 | 0x0c<<10,
 	ALDORLB:   0<<30 | 0x1c3<<21 | 0x0c<<10,
-	ASWPAD:    3<<30 | 0x1c5<<21 | 0x20<<10,
-	ASWPAW:    2<<30 | 0x1c5<<21 | 0x20<<10,
-	ASWPAH:    1<<30 | 0x1c5<<21 | 0x20<<10,
-	ASWPAB:    0<<30 | 0x1c5<<21 | 0x20<<10,
-	ASWPALD:   3<<30 | 0x1c7<<21 | 0x20<<10,
-	ASWPALW:   2<<30 | 0x1c7<<21 | 0x20<<10,
-	ASWPALH:   1<<30 | 0x1c7<<21 | 0x20<<10,
-	ASWPALB:   0<<30 | 0x1c7<<21 | 0x20<<10,
-	ASWPD:     3<<30 | 0x1c1<<21 | 0x20<<10,
-	ASWPW:     2<<30 | 0x1c1<<21 | 0x20<<10,
-	ASWPH:     1<<30 | 0x1c1<<21 | 0x20<<10,
-	ASWPB:     0<<30 | 0x1c1<<21 | 0x20<<10,
-	ASWPLD:    3<<30 | 0x1c3<<21 | 0x20<<10,
-	ASWPLW:    2<<30 | 0x1c3<<21 | 0x20<<10,
-	ASWPLH:    1<<30 | 0x1c3<<21 | 0x20<<10,
-	ASWPLB:    0<<30 | 0x1c3<<21 | 0x20<<10,
+}
+
+var atomicSWP = map[obj.As]uint32{
+	ASWPAD:  3<<30 | 0x1c5<<21 | 0x20<<10,
+	ASWPAW:  2<<30 | 0x1c5<<21 | 0x20<<10,
+	ASWPAH:  1<<30 | 0x1c5<<21 | 0x20<<10,
+	ASWPAB:  0<<30 | 0x1c5<<21 | 0x20<<10,
+	ASWPALD: 3<<30 | 0x1c7<<21 | 0x20<<10,
+	ASWPALW: 2<<30 | 0x1c7<<21 | 0x20<<10,
+	ASWPALH: 1<<30 | 0x1c7<<21 | 0x20<<10,
+	ASWPALB: 0<<30 | 0x1c7<<21 | 0x20<<10,
+	ASWPD:   3<<30 | 0x1c1<<21 | 0x20<<10,
+	ASWPW:   2<<30 | 0x1c1<<21 | 0x20<<10,
+	ASWPH:   1<<30 | 0x1c1<<21 | 0x20<<10,
+	ASWPB:   0<<30 | 0x1c1<<21 | 0x20<<10,
+	ASWPLD:  3<<30 | 0x1c3<<21 | 0x20<<10,
+	ASWPLW:  2<<30 | 0x1c3<<21 | 0x20<<10,
+	ASWPLH:  1<<30 | 0x1c3<<21 | 0x20<<10,
+	ASWPLB:  0<<30 | 0x1c3<<21 | 0x20<<10,
+	ACASD:   3<<30 | 0x45<<21 | 0x1f<<10,
+	ACASW:   2<<30 | 0x45<<21 | 0x1f<<10,
+	ACASH:   1<<30 | 0x45<<21 | 0x1f<<10,
+	ACASB:   0<<30 | 0x45<<21 | 0x1f<<10,
+	ACASAD:  3<<30 | 0x47<<21 | 0x1f<<10,
+	ACASAW:  2<<30 | 0x47<<21 | 0x1f<<10,
+	ACASLD:  3<<30 | 0x45<<21 | 0x3f<<10,
+	ACASLW:  2<<30 | 0x45<<21 | 0x3f<<10,
+	ACASALD: 3<<30 | 0x47<<21 | 0x3f<<10,
+	ACASALW: 2<<30 | 0x47<<21 | 0x3f<<10,
+	ACASALH: 1<<30 | 0x47<<21 | 0x3f<<10,
+	ACASALB: 0<<30 | 0x47<<21 | 0x3f<<10,
+}
+var atomicCASP = map[obj.As]uint32{
+	ACASPD: 1<<30 | 0x41<<21 | 0x1f<<10,
+	ACASPW: 0<<30 | 0x41<<21 | 0x1f<<10,
 }
 
 var oprange [ALAST & obj.AMask][]Optab
@@ -205,12 +229,8 @@ func SYSHINT(x uint32) uint32 {
 	return SYSOP(0, 0, 3, 2, 0, x, 0x1F)
 }
 
-func LDSTR12U(sz uint32, v uint32, opc uint32) uint32 {
-	return sz<<30 | 7<<27 | v<<26 | 1<<24 | opc<<22
-}
-
-func LDSTR9S(sz uint32, v uint32, opc uint32) uint32 {
-	return sz<<30 | 7<<27 | v<<26 | 0<<24 | opc<<22
+func LDSTR(sz uint32, v uint32, opc uint32) uint32 {
+	return sz<<30 | 7<<27 | v<<26 | opc<<22
 }
 
 func LD2STR(o uint32) uint32 {
@@ -260,8 +280,9 @@ func MOVCONST(d int64, s int, rt int) uint32 {
 const (
 	// Optab.flag
 	LFROM     = 1 << 0 // p.From uses constant pool
-	LTO       = 1 << 1 // p.To uses constant pool
-	NOTUSETMP = 1 << 2 // p expands to multiple instructions, but does NOT use REGTMP
+	LFROM128  = 1 << 1 // p.From3<<64+p.From forms a 128-bit constant in literal pool
+	LTO       = 1 << 2 // p.To uses constant pool
+	NOTUSETMP = 1 << 3 // p expands to multiple instructions, but does NOT use REGTMP
 )
 
 var optab = []Optab{
@@ -300,15 +321,17 @@ var optab = []Optab{
 	{ACMP, C_VCON, C_REG, C_NONE, C_NONE, 13, 20, 0, 0, 0},
 	{AADD, C_SHIFT, C_REG, C_NONE, C_REG, 3, 4, 0, 0, 0},
 	{AADD, C_SHIFT, C_NONE, C_NONE, C_REG, 3, 4, 0, 0, 0},
+	{AADD, C_SHIFT, C_RSP, C_NONE, C_RSP, 26, 4, 0, 0, 0},
+	{AADD, C_SHIFT, C_NONE, C_NONE, C_RSP, 26, 4, 0, 0, 0},
 	{AMVN, C_SHIFT, C_NONE, C_NONE, C_REG, 3, 4, 0, 0, 0},
 	{ACMP, C_SHIFT, C_REG, C_NONE, C_NONE, 3, 4, 0, 0, 0},
-	{ANEG, C_SHIFT, C_NONE, C_NONE, C_REG, 26, 4, 0, 0, 0},
+	{ACMP, C_SHIFT, C_RSP, C_NONE, C_NONE, 26, 4, 0, 0, 0},
+	{ANEG, C_SHIFT, C_NONE, C_NONE, C_REG, 3, 4, 0, 0, 0},
 	{AADD, C_REG, C_RSP, C_NONE, C_RSP, 27, 4, 0, 0, 0},
 	{AADD, C_REG, C_NONE, C_NONE, C_RSP, 27, 4, 0, 0, 0},
 	{ACMP, C_REG, C_RSP, C_NONE, C_NONE, 27, 4, 0, 0, 0},
 	{AADD, C_EXTREG, C_RSP, C_NONE, C_RSP, 27, 4, 0, 0, 0},
 	{AADD, C_EXTREG, C_NONE, C_NONE, C_RSP, 27, 4, 0, 0, 0},
-	{AMVN, C_EXTREG, C_NONE, C_NONE, C_RSP, 27, 4, 0, 0, 0},
 	{ACMP, C_EXTREG, C_RSP, C_NONE, C_NONE, 27, 4, 0, 0, 0},
 	{AADD, C_REG, C_REG, C_NONE, C_REG, 1, 4, 0, 0, 0},
 	{AADD, C_REG, C_NONE, C_NONE, C_REG, 1, 4, 0, 0, 0},
@@ -338,12 +361,12 @@ var optab = []Optab{
 	{AANDS, C_REG, C_NONE, C_NONE, C_REG, 1, 4, 0, 0, 0},
 	{ATST, C_REG, C_REG, C_NONE, C_NONE, 1, 4, 0, 0, 0},
 	{AAND, C_MBCON, C_REG, C_NONE, C_RSP, 53, 4, 0, 0, 0},
-	{AAND, C_MBCON, C_NONE, C_NONE, C_REG, 53, 4, 0, 0, 0},
+	{AAND, C_MBCON, C_NONE, C_NONE, C_RSP, 53, 4, 0, 0, 0},
 	{AANDS, C_MBCON, C_REG, C_NONE, C_REG, 53, 4, 0, 0, 0},
 	{AANDS, C_MBCON, C_NONE, C_NONE, C_REG, 53, 4, 0, 0, 0},
 	{ATST, C_MBCON, C_REG, C_NONE, C_NONE, 53, 4, 0, 0, 0},
 	{AAND, C_BITCON, C_REG, C_NONE, C_RSP, 53, 4, 0, 0, 0},
-	{AAND, C_BITCON, C_NONE, C_NONE, C_REG, 53, 4, 0, 0, 0},
+	{AAND, C_BITCON, C_NONE, C_NONE, C_RSP, 53, 4, 0, 0, 0},
 	{AANDS, C_BITCON, C_REG, C_NONE, C_REG, 53, 4, 0, 0, 0},
 	{AANDS, C_BITCON, C_NONE, C_NONE, C_REG, 53, 4, 0, 0, 0},
 	{ATST, C_BITCON, C_REG, C_NONE, C_NONE, 53, 4, 0, 0, 0},
@@ -381,10 +404,12 @@ var optab = []Optab{
 	/* TODO: MVN C_SHIFT */
 
 	/* MOVs that become MOVK/MOVN/MOVZ/ADD/SUB/OR */
+	{AMOVW, C_MBCON, C_NONE, C_NONE, C_REG, 32, 4, 0, 0, 0},
+	{AMOVD, C_MBCON, C_NONE, C_NONE, C_REG, 32, 4, 0, 0, 0},
 	{AMOVW, C_MOVCON, C_NONE, C_NONE, C_REG, 32, 4, 0, 0, 0},
 	{AMOVD, C_MOVCON, C_NONE, C_NONE, C_REG, 32, 4, 0, 0, 0},
-	{AMOVW, C_BITCON, C_NONE, C_NONE, C_REG, 32, 4, 0, 0, 0},
-	{AMOVD, C_BITCON, C_NONE, C_NONE, C_REG, 32, 4, 0, 0, 0},
+	{AMOVW, C_BITCON, C_NONE, C_NONE, C_RSP, 32, 4, 0, 0, 0},
+	{AMOVD, C_BITCON, C_NONE, C_NONE, C_RSP, 32, 4, 0, 0, 0},
 	{AMOVW, C_MOVCON2, C_NONE, C_NONE, C_REG, 12, 8, 0, NOTUSETMP, 0},
 	{AMOVD, C_MOVCON2, C_NONE, C_NONE, C_REG, 12, 8, 0, NOTUSETMP, 0},
 	{AMOVD, C_MOVCON3, C_NONE, C_NONE, C_REG, 12, 12, 0, NOTUSETMP, 0},
@@ -392,15 +417,15 @@ var optab = []Optab{
 
 	{AMOVK, C_VCON, C_NONE, C_NONE, C_REG, 33, 4, 0, 0, 0},
 	{AMOVD, C_AACON, C_NONE, C_NONE, C_RSP, 4, 4, REGFROM, 0, 0},
-	{AMOVD, C_AACON2, C_NONE, C_NONE, C_RSP, 4, 8, REGFROM, 0, 0},
+	{AMOVD, C_AACON2, C_NONE, C_NONE, C_RSP, 4, 8, REGFROM, NOTUSETMP, 0},
 
 	/* load long effective stack address (load int32 offset and add) */
 	{AMOVD, C_LACON, C_NONE, C_NONE, C_RSP, 34, 8, REGSP, LFROM, 0},
 
-	// Move a large constant to a Vn.
-	{AFMOVQ, C_VCON, C_NONE, C_NONE, C_VREG, 101, 4, 0, LFROM, 0},
-	{AFMOVD, C_VCON, C_NONE, C_NONE, C_VREG, 101, 4, 0, LFROM, 0},
-	{AFMOVS, C_LCON, C_NONE, C_NONE, C_VREG, 101, 4, 0, LFROM, 0},
+	// Move a large constant to a vector register.
+	{AVMOVQ, C_VCON, C_NONE, C_VCON, C_VREG, 101, 4, 0, LFROM128, 0},
+	{AVMOVD, C_VCON, C_NONE, C_NONE, C_VREG, 101, 4, 0, LFROM, 0},
+	{AVMOVS, C_LCON, C_NONE, C_NONE, C_VREG, 101, 4, 0, LFROM, 0},
 
 	/* jump operations */
 	{AB, C_NONE, C_NONE, C_NONE, C_SBRA, 5, 4, 0, 0, 0},
@@ -478,6 +503,8 @@ var optab = []Optab{
 	{AVMOV, C_REG, C_NONE, C_NONE, C_ELEM, 78, 4, 0, 0, 0},
 	{AVMOV, C_ARNG, C_NONE, C_NONE, C_ARNG, 83, 4, 0, 0, 0},
 	{AVDUP, C_ELEM, C_NONE, C_NONE, C_ARNG, 79, 4, 0, 0, 0},
+	{AVDUP, C_ELEM, C_NONE, C_NONE, C_VREG, 80, 4, 0, 0, 0},
+	{AVDUP, C_REG, C_NONE, C_NONE, C_ARNG, 82, 4, 0, 0, 0},
 	{AVMOVI, C_ADDCON, C_NONE, C_NONE, C_ARNG, 86, 4, 0, 0, 0},
 	{AVFMLA, C_ARNG, C_ARNG, C_NONE, C_ARNG, 72, 4, 0, 0, 0},
 	{AVEXT, C_VCON, C_ARNG, C_ARNG, C_ARNG, 94, 4, 0, 0, 0},
@@ -486,6 +513,7 @@ var optab = []Optab{
 	{AVZIP1, C_ARNG, C_ARNG, C_NONE, C_ARNG, 72, 4, 0, 0, 0},
 	{AVUSHLL, C_VCON, C_ARNG, C_NONE, C_ARNG, 102, 4, 0, 0, 0},
 	{AVUXTL, C_ARNG, C_NONE, C_NONE, C_ARNG, 102, 4, 0, 0, 0},
+	{AVUADDW, C_ARNG, C_ARNG, C_NONE, C_ARNG, 105, 4, 0, 0, 0},
 
 	/* conditional operations */
 	{ACSEL, C_COND, C_REG, C_REG, C_REG, 18, 4, 0, 0, 0},
@@ -512,6 +540,8 @@ var optab = []Optab{
 	{AFMOVS, C_FREG, C_NONE, C_NONE, C_UOREG16K, 20, 4, 0, 0, 0},
 	{AFMOVD, C_FREG, C_NONE, C_NONE, C_UAUTO32K, 20, 4, REGSP, 0, 0},
 	{AFMOVD, C_FREG, C_NONE, C_NONE, C_UOREG32K, 20, 4, 0, 0, 0},
+	{AFMOVQ, C_FREG, C_NONE, C_NONE, C_UAUTO64K, 20, 4, REGSP, 0, 0},
+	{AFMOVQ, C_FREG, C_NONE, C_NONE, C_UOREG64K, 20, 4, 0, 0, 0},
 
 	/* unscaled 9-bit signed displacement store */
 	{AMOVB, C_REG, C_NONE, C_NONE, C_NSAUTO, 20, 4, REGSP, 0, 0},
@@ -529,6 +559,8 @@ var optab = []Optab{
 	{AFMOVS, C_FREG, C_NONE, C_NONE, C_NSOREG, 20, 4, 0, 0, 0},
 	{AFMOVD, C_FREG, C_NONE, C_NONE, C_NSAUTO, 20, 4, REGSP, 0, 0},
 	{AFMOVD, C_FREG, C_NONE, C_NONE, C_NSOREG, 20, 4, 0, 0, 0},
+	{AFMOVQ, C_FREG, C_NONE, C_NONE, C_NSAUTO, 20, 4, REGSP, 0, 0},
+	{AFMOVQ, C_FREG, C_NONE, C_NONE, C_NSOREG, 20, 4, 0, 0, 0},
 
 	/* scaled 12-bit unsigned displacement load */
 	{AMOVB, C_UAUTO4K, C_NONE, C_NONE, C_REG, 21, 4, REGSP, 0, 0},
@@ -546,6 +578,8 @@ var optab = []Optab{
 	{AFMOVS, C_UOREG16K, C_NONE, C_NONE, C_FREG, 21, 4, 0, 0, 0},
 	{AFMOVD, C_UAUTO32K, C_NONE, C_NONE, C_FREG, 21, 4, REGSP, 0, 0},
 	{AFMOVD, C_UOREG32K, C_NONE, C_NONE, C_FREG, 21, 4, 0, 0, 0},
+	{AFMOVQ, C_UAUTO64K, C_NONE, C_NONE, C_FREG, 21, 4, REGSP, 0, 0},
+	{AFMOVQ, C_UOREG64K, C_NONE, C_NONE, C_FREG, 21, 4, 0, 0, 0},
 
 	/* unscaled 9-bit signed displacement load */
 	{AMOVB, C_NSAUTO, C_NONE, C_NONE, C_REG, 21, 4, REGSP, 0, 0},
@@ -563,6 +597,8 @@ var optab = []Optab{
 	{AFMOVS, C_NSOREG, C_NONE, C_NONE, C_FREG, 21, 4, 0, 0, 0},
 	{AFMOVD, C_NSAUTO, C_NONE, C_NONE, C_FREG, 21, 4, REGSP, 0, 0},
 	{AFMOVD, C_NSOREG, C_NONE, C_NONE, C_FREG, 21, 4, 0, 0, 0},
+	{AFMOVQ, C_NSAUTO, C_NONE, C_NONE, C_FREG, 21, 4, REGSP, 0, 0},
+	{AFMOVQ, C_NSOREG, C_NONE, C_NONE, C_FREG, 21, 4, 0, 0, 0},
 
 	/* long displacement store */
 	{AMOVB, C_REG, C_NONE, C_NONE, C_LAUTO, 30, 8, REGSP, LTO, 0},
@@ -580,6 +616,8 @@ var optab = []Optab{
 	{AFMOVS, C_FREG, C_NONE, C_NONE, C_LOREG, 30, 8, 0, LTO, 0},
 	{AFMOVD, C_FREG, C_NONE, C_NONE, C_LAUTO, 30, 8, REGSP, LTO, 0},
 	{AFMOVD, C_FREG, C_NONE, C_NONE, C_LOREG, 30, 8, 0, LTO, 0},
+	{AFMOVQ, C_FREG, C_NONE, C_NONE, C_LAUTO, 30, 8, REGSP, LTO, 0},
+	{AFMOVQ, C_FREG, C_NONE, C_NONE, C_LOREG, 30, 8, 0, LTO, 0},
 
 	/* long displacement load */
 	{AMOVB, C_LAUTO, C_NONE, C_NONE, C_REG, 31, 8, REGSP, LFROM, 0},
@@ -597,6 +635,8 @@ var optab = []Optab{
 	{AFMOVS, C_LOREG, C_NONE, C_NONE, C_FREG, 31, 8, 0, LFROM, 0},
 	{AFMOVD, C_LAUTO, C_NONE, C_NONE, C_FREG, 31, 8, REGSP, LFROM, 0},
 	{AFMOVD, C_LOREG, C_NONE, C_NONE, C_FREG, 31, 8, 0, LFROM, 0},
+	{AFMOVQ, C_LAUTO, C_NONE, C_NONE, C_FREG, 31, 8, REGSP, LFROM, 0},
+	{AFMOVQ, C_LOREG, C_NONE, C_NONE, C_FREG, 31, 8, 0, LFROM, 0},
 
 	/* pre/post-indexed load (unscaled, signed 9-bit offset) */
 	{AMOVD, C_LOREG, C_NONE, C_NONE, C_REG, 22, 4, 0, 0, C_XPOST},
@@ -606,6 +646,7 @@ var optab = []Optab{
 	{AMOVBU, C_LOREG, C_NONE, C_NONE, C_REG, 22, 4, 0, 0, C_XPOST},
 	{AFMOVS, C_LOREG, C_NONE, C_NONE, C_FREG, 22, 4, 0, 0, C_XPOST},
 	{AFMOVD, C_LOREG, C_NONE, C_NONE, C_FREG, 22, 4, 0, 0, C_XPOST},
+	{AFMOVQ, C_LOREG, C_NONE, C_NONE, C_FREG, 22, 4, 0, 0, C_XPOST},
 
 	{AMOVD, C_LOREG, C_NONE, C_NONE, C_REG, 22, 4, 0, 0, C_XPRE},
 	{AMOVW, C_LOREG, C_NONE, C_NONE, C_REG, 22, 4, 0, 0, C_XPRE},
@@ -614,6 +655,7 @@ var optab = []Optab{
 	{AMOVBU, C_LOREG, C_NONE, C_NONE, C_REG, 22, 4, 0, 0, C_XPRE},
 	{AFMOVS, C_LOREG, C_NONE, C_NONE, C_FREG, 22, 4, 0, 0, C_XPRE},
 	{AFMOVD, C_LOREG, C_NONE, C_NONE, C_FREG, 22, 4, 0, 0, C_XPRE},
+	{AFMOVQ, C_LOREG, C_NONE, C_NONE, C_FREG, 22, 4, 0, 0, C_XPRE},
 
 	/* pre/post-indexed store (unscaled, signed 9-bit offset) */
 	{AMOVD, C_REG, C_NONE, C_NONE, C_LOREG, 23, 4, 0, 0, C_XPOST},
@@ -623,6 +665,7 @@ var optab = []Optab{
 	{AMOVBU, C_REG, C_NONE, C_NONE, C_LOREG, 23, 4, 0, 0, C_XPOST},
 	{AFMOVS, C_FREG, C_NONE, C_NONE, C_LOREG, 23, 4, 0, 0, C_XPOST},
 	{AFMOVD, C_FREG, C_NONE, C_NONE, C_LOREG, 23, 4, 0, 0, C_XPOST},
+	{AFMOVQ, C_FREG, C_NONE, C_NONE, C_LOREG, 23, 4, 0, 0, C_XPOST},
 
 	{AMOVD, C_REG, C_NONE, C_NONE, C_LOREG, 23, 4, 0, 0, C_XPRE},
 	{AMOVW, C_REG, C_NONE, C_NONE, C_LOREG, 23, 4, 0, 0, C_XPRE},
@@ -631,6 +674,7 @@ var optab = []Optab{
 	{AMOVBU, C_REG, C_NONE, C_NONE, C_LOREG, 23, 4, 0, 0, C_XPRE},
 	{AFMOVS, C_FREG, C_NONE, C_NONE, C_LOREG, 23, 4, 0, 0, C_XPRE},
 	{AFMOVD, C_FREG, C_NONE, C_NONE, C_LOREG, 23, 4, 0, 0, C_XPRE},
+	{AFMOVQ, C_FREG, C_NONE, C_NONE, C_LOREG, 23, 4, 0, 0, C_XPRE},
 
 	/* load with shifted or extended register offset */
 	{AMOVD, C_ROFF, C_NONE, C_NONE, C_REG, 98, 4, 0, 0, 0},
@@ -650,22 +694,47 @@ var optab = []Optab{
 	{AFMOVD, C_FREG, C_NONE, C_NONE, C_ROFF, 99, 4, 0, 0, 0},
 
 	/* pre/post-indexed/signed-offset load/store register pair
-	   (unscaled, signed 10-bit quad-aligned and long offset) */
+	   (unscaled, signed 10-bit quad-aligned and long offset).
+	The pre/post-indexed format only supports OREG cases because
+	the RSP and pseudo registers are not allowed to be modified
+	in this way. */
+	{AFLDPQ, C_NQAUTO_16, C_NONE, C_NONE, C_PAIR, 66, 4, REGSP, 0, 0},
+	{AFLDPQ, C_PQAUTO_16, C_NONE, C_NONE, C_PAIR, 66, 4, REGSP, 0, 0},
+	{AFLDPQ, C_UAUTO4K, C_NONE, C_NONE, C_PAIR, 74, 8, REGSP, 0, 0},
+	{AFLDPQ, C_NAUTO4K, C_NONE, C_NONE, C_PAIR, 74, 8, REGSP, 0, 0},
+	{AFLDPQ, C_LAUTO, C_NONE, C_NONE, C_PAIR, 75, 12, REGSP, LFROM, 0},
+	{AFLDPQ, C_NQOREG_16, C_NONE, C_NONE, C_PAIR, 66, 4, 0, 0, 0},
+	{AFLDPQ, C_NQOREG_16, C_NONE, C_NONE, C_PAIR, 66, 4, 0, 0, C_XPRE},
+	{AFLDPQ, C_NQOREG_16, C_NONE, C_NONE, C_PAIR, 66, 4, 0, 0, C_XPOST},
+	{AFLDPQ, C_PQOREG_16, C_NONE, C_NONE, C_PAIR, 66, 4, 0, 0, 0},
+	{AFLDPQ, C_PQOREG_16, C_NONE, C_NONE, C_PAIR, 66, 4, 0, 0, C_XPRE},
+	{AFLDPQ, C_PQOREG_16, C_NONE, C_NONE, C_PAIR, 66, 4, 0, 0, C_XPOST},
+	{AFLDPQ, C_UOREG4K, C_NONE, C_NONE, C_PAIR, 74, 8, 0, 0, 0},
+	{AFLDPQ, C_NOREG4K, C_NONE, C_NONE, C_PAIR, 74, 8, 0, 0, 0},
+	{AFLDPQ, C_LOREG, C_NONE, C_NONE, C_PAIR, 75, 12, 0, LFROM, 0},
+	{AFLDPQ, C_ADDR, C_NONE, C_NONE, C_PAIR, 88, 12, 0, 0, 0},
+
+	{AFSTPQ, C_PAIR, C_NONE, C_NONE, C_NQAUTO_16, 67, 4, REGSP, 0, 0},
+	{AFSTPQ, C_PAIR, C_NONE, C_NONE, C_PQAUTO_16, 67, 4, REGSP, 0, 0},
+	{AFSTPQ, C_PAIR, C_NONE, C_NONE, C_UAUTO4K, 76, 8, REGSP, 0, 0},
+	{AFSTPQ, C_PAIR, C_NONE, C_NONE, C_NAUTO4K, 76, 8, REGSP, 0, 0},
+	{AFSTPQ, C_PAIR, C_NONE, C_NONE, C_LAUTO, 77, 12, REGSP, LTO, 0},
+	{AFSTPQ, C_PAIR, C_NONE, C_NONE, C_NQOREG_16, 67, 4, 0, 0, 0},
+	{AFSTPQ, C_PAIR, C_NONE, C_NONE, C_NQOREG_16, 67, 4, 0, 0, C_XPRE},
+	{AFSTPQ, C_PAIR, C_NONE, C_NONE, C_NQOREG_16, 67, 4, 0, 0, C_XPOST},
+	{AFSTPQ, C_PAIR, C_NONE, C_NONE, C_PQOREG_16, 67, 4, 0, 0, 0},
+	{AFSTPQ, C_PAIR, C_NONE, C_NONE, C_PQOREG_16, 67, 4, 0, 0, C_XPRE},
+	{AFSTPQ, C_PAIR, C_NONE, C_NONE, C_PQOREG_16, 67, 4, 0, 0, C_XPOST},
+	{AFSTPQ, C_PAIR, C_NONE, C_NONE, C_UOREG4K, 76, 8, 0, 0, 0},
+	{AFSTPQ, C_PAIR, C_NONE, C_NONE, C_NOREG4K, 76, 8, 0, 0, 0},
+	{AFSTPQ, C_PAIR, C_NONE, C_NONE, C_LOREG, 77, 12, 0, LTO, 0},
+	{AFSTPQ, C_PAIR, C_NONE, C_NONE, C_ADDR, 87, 12, 0, 0, 0},
+
 	{ALDP, C_NPAUTO, C_NONE, C_NONE, C_PAIR, 66, 4, REGSP, 0, 0},
-	{ALDP, C_NPAUTO, C_NONE, C_NONE, C_PAIR, 66, 4, REGSP, 0, C_XPRE},
-	{ALDP, C_NPAUTO, C_NONE, C_NONE, C_PAIR, 66, 4, REGSP, 0, C_XPOST},
 	{ALDP, C_PPAUTO, C_NONE, C_NONE, C_PAIR, 66, 4, REGSP, 0, 0},
-	{ALDP, C_PPAUTO, C_NONE, C_NONE, C_PAIR, 66, 4, REGSP, 0, C_XPRE},
-	{ALDP, C_PPAUTO, C_NONE, C_NONE, C_PAIR, 66, 4, REGSP, 0, C_XPOST},
 	{ALDP, C_UAUTO4K, C_NONE, C_NONE, C_PAIR, 74, 8, REGSP, 0, 0},
-	{ALDP, C_UAUTO4K, C_NONE, C_NONE, C_PAIR, 74, 8, REGSP, 0, C_XPRE},
-	{ALDP, C_UAUTO4K, C_NONE, C_NONE, C_PAIR, 74, 8, REGSP, 0, C_XPOST},
 	{ALDP, C_NAUTO4K, C_NONE, C_NONE, C_PAIR, 74, 8, REGSP, 0, 0},
-	{ALDP, C_NAUTO4K, C_NONE, C_NONE, C_PAIR, 74, 8, REGSP, 0, C_XPRE},
-	{ALDP, C_NAUTO4K, C_NONE, C_NONE, C_PAIR, 74, 8, REGSP, 0, C_XPOST},
 	{ALDP, C_LAUTO, C_NONE, C_NONE, C_PAIR, 75, 12, REGSP, LFROM, 0},
-	{ALDP, C_LAUTO, C_NONE, C_NONE, C_PAIR, 75, 12, REGSP, LFROM, C_XPRE},
-	{ALDP, C_LAUTO, C_NONE, C_NONE, C_PAIR, 75, 12, REGSP, LFROM, C_XPOST},
 	{ALDP, C_NPOREG, C_NONE, C_NONE, C_PAIR, 66, 4, 0, 0, 0},
 	{ALDP, C_NPOREG, C_NONE, C_NONE, C_PAIR, 66, 4, 0, 0, C_XPRE},
 	{ALDP, C_NPOREG, C_NONE, C_NONE, C_PAIR, 66, 4, 0, 0, C_XPOST},
@@ -673,31 +742,15 @@ var optab = []Optab{
 	{ALDP, C_PPOREG, C_NONE, C_NONE, C_PAIR, 66, 4, 0, 0, C_XPRE},
 	{ALDP, C_PPOREG, C_NONE, C_NONE, C_PAIR, 66, 4, 0, 0, C_XPOST},
 	{ALDP, C_UOREG4K, C_NONE, C_NONE, C_PAIR, 74, 8, 0, 0, 0},
-	{ALDP, C_UOREG4K, C_NONE, C_NONE, C_PAIR, 74, 8, 0, 0, C_XPRE},
-	{ALDP, C_UOREG4K, C_NONE, C_NONE, C_PAIR, 74, 8, 0, 0, C_XPOST},
 	{ALDP, C_NOREG4K, C_NONE, C_NONE, C_PAIR, 74, 8, 0, 0, 0},
-	{ALDP, C_NOREG4K, C_NONE, C_NONE, C_PAIR, 74, 8, 0, 0, C_XPRE},
-	{ALDP, C_NOREG4K, C_NONE, C_NONE, C_PAIR, 74, 8, 0, 0, C_XPOST},
 	{ALDP, C_LOREG, C_NONE, C_NONE, C_PAIR, 75, 12, 0, LFROM, 0},
-	{ALDP, C_LOREG, C_NONE, C_NONE, C_PAIR, 75, 12, 0, LFROM, C_XPRE},
-	{ALDP, C_LOREG, C_NONE, C_NONE, C_PAIR, 75, 12, 0, LFROM, C_XPOST},
 	{ALDP, C_ADDR, C_NONE, C_NONE, C_PAIR, 88, 12, 0, 0, 0},
 
 	{ASTP, C_PAIR, C_NONE, C_NONE, C_NPAUTO, 67, 4, REGSP, 0, 0},
-	{ASTP, C_PAIR, C_NONE, C_NONE, C_NPAUTO, 67, 4, REGSP, 0, C_XPRE},
-	{ASTP, C_PAIR, C_NONE, C_NONE, C_NPAUTO, 67, 4, REGSP, 0, C_XPOST},
 	{ASTP, C_PAIR, C_NONE, C_NONE, C_PPAUTO, 67, 4, REGSP, 0, 0},
-	{ASTP, C_PAIR, C_NONE, C_NONE, C_PPAUTO, 67, 4, REGSP, 0, C_XPRE},
-	{ASTP, C_PAIR, C_NONE, C_NONE, C_PPAUTO, 67, 4, REGSP, 0, C_XPOST},
 	{ASTP, C_PAIR, C_NONE, C_NONE, C_UAUTO4K, 76, 8, REGSP, 0, 0},
-	{ASTP, C_PAIR, C_NONE, C_NONE, C_UAUTO4K, 76, 8, REGSP, 0, C_XPRE},
-	{ASTP, C_PAIR, C_NONE, C_NONE, C_UAUTO4K, 76, 8, REGSP, 0, C_XPOST},
-	{ASTP, C_PAIR, C_NONE, C_NONE, C_NAUTO4K, 76, 12, REGSP, 0, 0},
-	{ASTP, C_PAIR, C_NONE, C_NONE, C_NAUTO4K, 76, 12, REGSP, 0, C_XPRE},
-	{ASTP, C_PAIR, C_NONE, C_NONE, C_NAUTO4K, 76, 12, REGSP, 0, C_XPOST},
+	{ASTP, C_PAIR, C_NONE, C_NONE, C_NAUTO4K, 76, 8, REGSP, 0, 0},
 	{ASTP, C_PAIR, C_NONE, C_NONE, C_LAUTO, 77, 12, REGSP, LTO, 0},
-	{ASTP, C_PAIR, C_NONE, C_NONE, C_LAUTO, 77, 12, REGSP, LTO, C_XPRE},
-	{ASTP, C_PAIR, C_NONE, C_NONE, C_LAUTO, 77, 12, REGSP, LTO, C_XPOST},
 	{ASTP, C_PAIR, C_NONE, C_NONE, C_NPOREG, 67, 4, 0, 0, 0},
 	{ASTP, C_PAIR, C_NONE, C_NONE, C_NPOREG, 67, 4, 0, 0, C_XPRE},
 	{ASTP, C_PAIR, C_NONE, C_NONE, C_NPOREG, 67, 4, 0, 0, C_XPOST},
@@ -705,32 +758,16 @@ var optab = []Optab{
 	{ASTP, C_PAIR, C_NONE, C_NONE, C_PPOREG, 67, 4, 0, 0, C_XPRE},
 	{ASTP, C_PAIR, C_NONE, C_NONE, C_PPOREG, 67, 4, 0, 0, C_XPOST},
 	{ASTP, C_PAIR, C_NONE, C_NONE, C_UOREG4K, 76, 8, 0, 0, 0},
-	{ASTP, C_PAIR, C_NONE, C_NONE, C_UOREG4K, 76, 8, 0, 0, C_XPRE},
-	{ASTP, C_PAIR, C_NONE, C_NONE, C_UOREG4K, 76, 8, 0, 0, C_XPOST},
 	{ASTP, C_PAIR, C_NONE, C_NONE, C_NOREG4K, 76, 8, 0, 0, 0},
-	{ASTP, C_PAIR, C_NONE, C_NONE, C_NOREG4K, 76, 8, 0, 0, C_XPRE},
-	{ASTP, C_PAIR, C_NONE, C_NONE, C_NOREG4K, 76, 8, 0, 0, C_XPOST},
 	{ASTP, C_PAIR, C_NONE, C_NONE, C_LOREG, 77, 12, 0, LTO, 0},
-	{ASTP, C_PAIR, C_NONE, C_NONE, C_LOREG, 77, 12, 0, LTO, C_XPRE},
-	{ASTP, C_PAIR, C_NONE, C_NONE, C_LOREG, 77, 12, 0, LTO, C_XPOST},
 	{ASTP, C_PAIR, C_NONE, C_NONE, C_ADDR, 87, 12, 0, 0, 0},
 
 	// differ from LDP/STP for C_NSAUTO_4/C_PSAUTO_4/C_NSOREG_4/C_PSOREG_4
 	{ALDPW, C_NSAUTO_4, C_NONE, C_NONE, C_PAIR, 66, 4, REGSP, 0, 0},
-	{ALDPW, C_NSAUTO_4, C_NONE, C_NONE, C_PAIR, 66, 4, REGSP, 0, C_XPRE},
-	{ALDPW, C_NSAUTO_4, C_NONE, C_NONE, C_PAIR, 66, 4, REGSP, 0, C_XPOST},
 	{ALDPW, C_PSAUTO_4, C_NONE, C_NONE, C_PAIR, 66, 4, REGSP, 0, 0},
-	{ALDPW, C_PSAUTO_4, C_NONE, C_NONE, C_PAIR, 66, 4, REGSP, 0, C_XPRE},
-	{ALDPW, C_PSAUTO_4, C_NONE, C_NONE, C_PAIR, 66, 4, REGSP, 0, C_XPOST},
 	{ALDPW, C_UAUTO4K, C_NONE, C_NONE, C_PAIR, 74, 8, REGSP, 0, 0},
-	{ALDPW, C_UAUTO4K, C_NONE, C_NONE, C_PAIR, 74, 8, REGSP, 0, C_XPRE},
-	{ALDPW, C_UAUTO4K, C_NONE, C_NONE, C_PAIR, 74, 8, REGSP, 0, C_XPOST},
 	{ALDPW, C_NAUTO4K, C_NONE, C_NONE, C_PAIR, 74, 8, REGSP, 0, 0},
-	{ALDPW, C_NAUTO4K, C_NONE, C_NONE, C_PAIR, 74, 8, REGSP, 0, C_XPRE},
-	{ALDPW, C_NAUTO4K, C_NONE, C_NONE, C_PAIR, 74, 8, REGSP, 0, C_XPOST},
 	{ALDPW, C_LAUTO, C_NONE, C_NONE, C_PAIR, 75, 12, REGSP, LFROM, 0},
-	{ALDPW, C_LAUTO, C_NONE, C_NONE, C_PAIR, 75, 12, REGSP, LFROM, C_XPRE},
-	{ALDPW, C_LAUTO, C_NONE, C_NONE, C_PAIR, 75, 12, REGSP, LFROM, C_XPOST},
 	{ALDPW, C_NSOREG_4, C_NONE, C_NONE, C_PAIR, 66, 4, 0, 0, 0},
 	{ALDPW, C_NSOREG_4, C_NONE, C_NONE, C_PAIR, 66, 4, 0, 0, C_XPRE},
 	{ALDPW, C_NSOREG_4, C_NONE, C_NONE, C_PAIR, 66, 4, 0, 0, C_XPOST},
@@ -738,31 +775,15 @@ var optab = []Optab{
 	{ALDPW, C_PSOREG_4, C_NONE, C_NONE, C_PAIR, 66, 4, 0, 0, C_XPRE},
 	{ALDPW, C_PSOREG_4, C_NONE, C_NONE, C_PAIR, 66, 4, 0, 0, C_XPOST},
 	{ALDPW, C_UOREG4K, C_NONE, C_NONE, C_PAIR, 74, 8, 0, 0, 0},
-	{ALDPW, C_UOREG4K, C_NONE, C_NONE, C_PAIR, 74, 8, 0, 0, C_XPRE},
-	{ALDPW, C_UOREG4K, C_NONE, C_NONE, C_PAIR, 74, 8, 0, 0, C_XPOST},
 	{ALDPW, C_NOREG4K, C_NONE, C_NONE, C_PAIR, 74, 8, 0, 0, 0},
-	{ALDPW, C_NOREG4K, C_NONE, C_NONE, C_PAIR, 74, 8, 0, 0, C_XPRE},
-	{ALDPW, C_NOREG4K, C_NONE, C_NONE, C_PAIR, 74, 8, 0, 0, C_XPOST},
 	{ALDPW, C_LOREG, C_NONE, C_NONE, C_PAIR, 75, 12, 0, LFROM, 0},
-	{ALDPW, C_LOREG, C_NONE, C_NONE, C_PAIR, 75, 12, 0, LFROM, C_XPRE},
-	{ALDPW, C_LOREG, C_NONE, C_NONE, C_PAIR, 75, 12, 0, LFROM, C_XPOST},
 	{ALDPW, C_ADDR, C_NONE, C_NONE, C_PAIR, 88, 12, 0, 0, 0},
 
 	{ASTPW, C_PAIR, C_NONE, C_NONE, C_NSAUTO_4, 67, 4, REGSP, 0, 0},
-	{ASTPW, C_PAIR, C_NONE, C_NONE, C_NSAUTO_4, 67, 4, REGSP, 0, C_XPRE},
-	{ASTPW, C_PAIR, C_NONE, C_NONE, C_NSAUTO_4, 67, 4, REGSP, 0, C_XPOST},
 	{ASTPW, C_PAIR, C_NONE, C_NONE, C_PSAUTO_4, 67, 4, REGSP, 0, 0},
-	{ASTPW, C_PAIR, C_NONE, C_NONE, C_PSAUTO_4, 67, 4, REGSP, 0, C_XPRE},
-	{ASTPW, C_PAIR, C_NONE, C_NONE, C_PSAUTO_4, 67, 4, REGSP, 0, C_XPOST},
 	{ASTPW, C_PAIR, C_NONE, C_NONE, C_UAUTO4K, 76, 8, REGSP, 0, 0},
-	{ASTPW, C_PAIR, C_NONE, C_NONE, C_UAUTO4K, 76, 8, REGSP, 0, C_XPRE},
-	{ASTPW, C_PAIR, C_NONE, C_NONE, C_UAUTO4K, 76, 8, REGSP, 0, C_XPOST},
-	{ASTPW, C_PAIR, C_NONE, C_NONE, C_NAUTO4K, 76, 12, REGSP, 0, 0},
-	{ASTPW, C_PAIR, C_NONE, C_NONE, C_NAUTO4K, 76, 12, REGSP, 0, C_XPRE},
-	{ASTPW, C_PAIR, C_NONE, C_NONE, C_NAUTO4K, 76, 12, REGSP, 0, C_XPOST},
+	{ASTPW, C_PAIR, C_NONE, C_NONE, C_NAUTO4K, 76, 8, REGSP, 0, 0},
 	{ASTPW, C_PAIR, C_NONE, C_NONE, C_LAUTO, 77, 12, REGSP, LTO, 0},
-	{ASTPW, C_PAIR, C_NONE, C_NONE, C_LAUTO, 77, 12, REGSP, LTO, C_XPRE},
-	{ASTPW, C_PAIR, C_NONE, C_NONE, C_LAUTO, 77, 12, REGSP, LTO, C_XPOST},
 	{ASTPW, C_PAIR, C_NONE, C_NONE, C_NSOREG_4, 67, 4, 0, 0, 0},
 	{ASTPW, C_PAIR, C_NONE, C_NONE, C_NSOREG_4, 67, 4, 0, 0, C_XPRE},
 	{ASTPW, C_PAIR, C_NONE, C_NONE, C_NSOREG_4, 67, 4, 0, 0, C_XPOST},
@@ -770,18 +791,14 @@ var optab = []Optab{
 	{ASTPW, C_PAIR, C_NONE, C_NONE, C_PSOREG_4, 67, 4, 0, 0, C_XPRE},
 	{ASTPW, C_PAIR, C_NONE, C_NONE, C_PSOREG_4, 67, 4, 0, 0, C_XPOST},
 	{ASTPW, C_PAIR, C_NONE, C_NONE, C_UOREG4K, 76, 8, 0, 0, 0},
-	{ASTPW, C_PAIR, C_NONE, C_NONE, C_UOREG4K, 76, 8, 0, 0, C_XPRE},
-	{ASTPW, C_PAIR, C_NONE, C_NONE, C_UOREG4K, 76, 8, 0, 0, C_XPOST},
 	{ASTPW, C_PAIR, C_NONE, C_NONE, C_NOREG4K, 76, 8, 0, 0, 0},
-	{ASTPW, C_PAIR, C_NONE, C_NONE, C_NOREG4K, 76, 8, 0, 0, C_XPRE},
-	{ASTPW, C_PAIR, C_NONE, C_NONE, C_NOREG4K, 76, 8, 0, 0, C_XPOST},
 	{ASTPW, C_PAIR, C_NONE, C_NONE, C_LOREG, 77, 12, 0, LTO, 0},
-	{ASTPW, C_PAIR, C_NONE, C_NONE, C_LOREG, 77, 12, 0, LTO, C_XPRE},
-	{ASTPW, C_PAIR, C_NONE, C_NONE, C_LOREG, 77, 12, 0, LTO, C_XPOST},
 	{ASTPW, C_PAIR, C_NONE, C_NONE, C_ADDR, 87, 12, 0, 0, 0},
 
-	{ASWPD, C_REG, C_NONE, C_NONE, C_ZOREG, 47, 4, 0, 0, 0},     // RegTo2=C_REG
-	{ASWPD, C_REG, C_NONE, C_NONE, C_ZAUTO, 47, 4, REGSP, 0, 0}, // RegTo2=C_REG
+	{ASWPD, C_REG, C_NONE, C_NONE, C_ZOREG, 47, 4, 0, 0, 0},        // RegTo2=C_REG
+	{ASWPD, C_REG, C_NONE, C_NONE, C_ZAUTO, 47, 4, REGSP, 0, 0},    // RegTo2=C_REG
+	{ACASPD, C_PAIR, C_NONE, C_NONE, C_ZOREG, 106, 4, 0, 0, 0},     // RegTo2=C_REGREG
+	{ACASPD, C_PAIR, C_NONE, C_NONE, C_ZAUTO, 106, 4, REGSP, 0, 0}, // RegTo2=C_REGREG
 	{ALDAR, C_ZOREG, C_NONE, C_NONE, C_REG, 58, 4, 0, 0, 0},
 	{ALDXR, C_ZOREG, C_NONE, C_NONE, C_REG, 58, 4, 0, 0, 0},
 	{ALDAXR, C_ZOREG, C_NONE, C_NONE, C_REG, 58, 4, 0, 0, 0},
@@ -842,6 +859,8 @@ var optab = []Optab{
 	{ASHA256H, C_ARNG, C_VREG, C_NONE, C_VREG, 1, 4, 0, 0, 0},
 	{AVREV32, C_ARNG, C_NONE, C_NONE, C_ARNG, 83, 4, 0, 0, 0},
 	{AVPMULL, C_ARNG, C_ARNG, C_NONE, C_ARNG, 93, 4, 0, 0, 0},
+	{AVEOR3, C_ARNG, C_ARNG, C_ARNG, C_ARNG, 103, 4, 0, 0, 0},
+	{AVXAR, C_VCON, C_ARNG, C_ARNG, C_ARNG, 104, 4, 0, 0, 0},
 
 	{obj.AUNDEF, C_NONE, C_NONE, C_NONE, C_NONE, 90, 4, 0, 0, 0},
 	{obj.APCDATA, C_VCON, C_NONE, C_NONE, C_VCON, 0, 0, 0, 0, 0},
@@ -910,7 +929,7 @@ func span7(ctxt *obj.Link, cursym *obj.LSym, newprog obj.ProgAlloc) {
 		ctxt.Retpoline = false // don't keep printing
 	}
 
-	p := cursym.Func.Text
+	p := cursym.Func().Text
 	if p == nil || p.Link == nil { // handle external functions and ELF section symbols
 		return
 	}
@@ -940,8 +959,8 @@ func span7(ctxt *obj.Link, cursym *obj.LSym, newprog obj.ProgAlloc) {
 				alignedValue := p.From.Offset
 				m = pcAlignPadLength(pc, alignedValue, ctxt)
 				// Update the current text symbol alignment value.
-				if int32(alignedValue) > cursym.Func.Align {
-					cursym.Func.Align = int32(alignedValue)
+				if int32(alignedValue) > cursym.Func().Align {
+					cursym.Func().Align = int32(alignedValue)
 				}
 				break
 			case obj.ANOP, obj.AFUNCDATA, obj.APCDATA:
@@ -950,13 +969,14 @@ func span7(ctxt *obj.Link, cursym *obj.LSym, newprog obj.ProgAlloc) {
 				c.ctxt.Diag("zero-width instruction\n%v", p)
 			}
 		}
-		switch o.flag & (LFROM | LTO) {
-		case LFROM:
+		if o.flag&LFROM != 0 {
 			c.addpool(p, &p.From)
-
-		case LTO:
+		}
+		if o.flag&LFROM128 != 0 {
+			c.addpool128(p, &p.From, p.GetFrom3())
+		}
+		if o.flag&LTO != 0 {
 			c.addpool(p, &p.To)
-			break
 		}
 
 		if p.As == AB || p.As == obj.ARET || p.As == AERET { /* TODO: other unconditional operations */
@@ -979,7 +999,7 @@ func span7(ctxt *obj.Link, cursym *obj.LSym, newprog obj.ProgAlloc) {
 	for bflag != 0 {
 		bflag = 0
 		pc = 0
-		for p = c.cursym.Func.Text.Link; p != nil; p = p.Link {
+		for p = c.cursym.Func().Text.Link; p != nil; p = p.Link {
 			if p.As == ADWORD && (pc&7) != 0 {
 				pc += 4
 			}
@@ -1043,7 +1063,7 @@ func span7(ctxt *obj.Link, cursym *obj.LSym, newprog obj.ProgAlloc) {
 	psz := int32(0)
 	var i int
 	var out [6]uint32
-	for p := c.cursym.Func.Text.Link; p != nil; p = p.Link {
+	for p := c.cursym.Func().Text.Link; p != nil; p = p.Link {
 		c.pc = p.Pc
 		o = c.oplook(p)
 
@@ -1084,7 +1104,7 @@ func span7(ctxt *obj.Link, cursym *obj.LSym, newprog obj.ProgAlloc) {
 	// We use REGTMP as a scratch register during call injection,
 	// so instruction sequences that use REGTMP are unsafe to
 	// preempt asynchronously.
-	obj.MarkUnsafePoints(c.ctxt, c.cursym.Func.Text, c.newprog, c.isUnsafePoint, c.isRestartable)
+	obj.MarkUnsafePoints(c.ctxt, c.cursym.Func().Text, c.newprog, c.isUnsafePoint, c.isRestartable)
 }
 
 // isUnsafePoint returns whether p is an unsafe point.
@@ -1158,6 +1178,34 @@ func (c *ctxt7) flushpool(p *obj.Prog, skip int) {
 	}
 }
 
+// addpool128 adds a 128-bit constant to literal pool by two consecutive DWORD
+// instructions, the 128-bit constant is formed by ah.Offset<<64+al.Offset.
+func (c *ctxt7) addpool128(p *obj.Prog, al, ah *obj.Addr) {
+	q := c.newprog()
+	q.As = ADWORD
+	q.To.Type = obj.TYPE_CONST
+	q.To.Offset = al.Offset
+
+	t := c.newprog()
+	t.As = ADWORD
+	t.To.Type = obj.TYPE_CONST
+	t.To.Offset = ah.Offset
+
+	q.Link = t
+
+	if c.blitrl == nil {
+		c.blitrl = q
+		c.pool.start = uint32(p.Pc)
+	} else {
+		c.elitrl.Link = q
+	}
+
+	c.elitrl = t
+	c.pool.size = roundUp(c.pool.size, 16)
+	c.pool.size += 16
+	p.Pool = q
+}
+
 /*
  * MOVD foo(SB), R is actually
  *   MOVD addr, REGTMP
@@ -1174,8 +1222,8 @@ func (c *ctxt7) addpool(p *obj.Prog, a *obj.Addr) {
 	sz := 4
 
 	if a.Type == obj.TYPE_CONST {
-		if lit != int64(int32(lit)) && uint64(lit) != uint64(uint32(lit)) {
-			// out of range -0x80000000 ~ 0xffffffff, must store 64-bit
+		if (lit != int64(int32(lit)) && uint64(lit) != uint64(uint32(lit))) || p.As == AVMOVQ || p.As == AVMOVD {
+			// out of range -0x80000000 ~ 0xffffffff or VMOVQ or VMOVD operand, must store 64-bit.
 			t.As = ADWORD
 			sz = 8
 		} // else store 32-bit
@@ -1186,76 +1234,8 @@ func (c *ctxt7) addpool(p *obj.Prog, a *obj.Addr) {
 		sz = 8
 	}
 
-	switch cls {
-	// TODO(aram): remove.
-	default:
-		if a.Name != obj.NAME_EXTERN {
-			fmt.Printf("addpool: %v in %v shouldn't go to default case\n", DRconv(cls), p)
-		}
-
-		t.To.Offset = a.Offset
-		t.To.Sym = a.Sym
-		t.To.Type = a.Type
-		t.To.Name = a.Name
-
-	/* This is here because MOV uint12<<12, R is disabled in optab.
-	Because of this, we need to load the constant from memory. */
-	case C_ADDCON:
-		fallthrough
-
-	case C_ZAUTO,
-		C_PSAUTO,
-		C_PSAUTO_8,
-		C_PSAUTO_4,
-		C_PPAUTO,
-		C_UAUTO4K_8,
-		C_UAUTO4K_4,
-		C_UAUTO4K_2,
-		C_UAUTO4K,
-		C_UAUTO8K_8,
-		C_UAUTO8K_4,
-		C_UAUTO8K,
-		C_UAUTO16K_8,
-		C_UAUTO16K,
-		C_UAUTO32K,
-		C_NSAUTO_8,
-		C_NSAUTO_4,
-		C_NSAUTO,
-		C_NPAUTO,
-		C_NAUTO4K,
-		C_LAUTO,
-		C_PPOREG,
-		C_PSOREG,
-		C_PSOREG_4,
-		C_PSOREG_8,
-		C_UOREG4K_8,
-		C_UOREG4K_4,
-		C_UOREG4K_2,
-		C_UOREG4K,
-		C_UOREG8K_8,
-		C_UOREG8K_4,
-		C_UOREG8K,
-		C_UOREG16K_8,
-		C_UOREG16K,
-		C_UOREG32K,
-		C_NSOREG_8,
-		C_NSOREG_4,
-		C_NSOREG,
-		C_NPOREG,
-		C_NOREG4K,
-		C_LOREG,
-		C_LACON,
-		C_ADDCON2,
-		C_LCON,
-		C_VCON:
-		if a.Name == obj.NAME_EXTERN {
-			fmt.Printf("addpool: %v in %v needs reloc\n", DRconv(cls), p)
-		}
-
-		t.To.Type = obj.TYPE_CONST
-		t.To.Offset = lit
-		break
-	}
+	t.To.Type = obj.TYPE_CONST
+	t.To.Offset = lit
 
 	for q := c.blitrl; q != nil; q = q.Link { /* could hash on t.t0.offset */
 		if q.To == t.To {
@@ -1266,7 +1246,6 @@ func (c *ctxt7) addpool(p *obj.Prog, a *obj.Addr) {
 
 	q := c.newprog()
 	*q = *t
-	q.Pc = int64(c.pool.size)
 	if c.blitrl == nil {
 		c.blitrl = q
 		c.pool.start = uint32(p.Pc)
@@ -1274,9 +1253,22 @@ func (c *ctxt7) addpool(p *obj.Prog, a *obj.Addr) {
 		c.elitrl.Link = q
 	}
 	c.elitrl = q
-	c.pool.size = -c.pool.size & (funcAlign - 1)
+	if q.As == ADWORD {
+		// make DWORD 8-byte aligned, this is not required by ISA,
+		// just to avoid performance penalties when loading from
+		// the constant pool across a cache line.
+		c.pool.size = roundUp(c.pool.size, 8)
+	}
 	c.pool.size += uint32(sz)
 	p.Pool = q
+}
+
+// roundUp rounds up x to "to".
+func roundUp(x, to uint32) uint32 {
+	if to == 0 || to&(to-1) != 0 {
+		log.Fatalf("rounded up to a value that is not a power of 2: %d\n", to)
+	}
+	return (x + to - 1) &^ (to - 1)
 }
 
 func (c *ctxt7) regoff(a *obj.Addr) uint32 {
@@ -1331,6 +1323,22 @@ func isADDop(op obj.As) bool {
 func isADDWop(op obj.As) bool {
 	switch op {
 	case AADDW, AADDSW, ASUBW, ASUBSW, ACMNW, ACMPW:
+		return true
+	}
+	return false
+}
+
+func isADDSop(op obj.As) bool {
+	switch op {
+	case AADDS, AADDSW, ASUBS, ASUBSW:
+		return true
+	}
+	return false
+}
+
+func isNEGop(op obj.As) bool {
+	switch op {
+	case ANEG, ANEGW, ANEGS, ANEGSW:
 		return true
 	}
 	return false
@@ -1505,6 +1513,9 @@ func autoclass(l int64) int {
 	}
 
 	if l < 0 {
+		if l >= -256 && (l&15) == 0 {
+			return C_NSAUTO_16
+		}
 		if l >= -256 && (l&7) == 0 {
 			return C_NSAUTO_8
 		}
@@ -1514,8 +1525,14 @@ func autoclass(l int64) int {
 		if l >= -256 {
 			return C_NSAUTO
 		}
+		if l >= -512 && (l&15) == 0 {
+			return C_NPAUTO_16
+		}
 		if l >= -512 && (l&7) == 0 {
 			return C_NPAUTO
+		}
+		if l >= -1024 && (l&15) == 0 {
+			return C_NQAUTO_16
 		}
 		if l >= -4095 {
 			return C_NAUTO4K
@@ -1524,6 +1541,9 @@ func autoclass(l int64) int {
 	}
 
 	if l <= 255 {
+		if (l & 15) == 0 {
+			return C_PSAUTO_16
+		}
 		if (l & 7) == 0 {
 			return C_PSAUTO_8
 		}
@@ -1532,10 +1552,23 @@ func autoclass(l int64) int {
 		}
 		return C_PSAUTO
 	}
-	if l <= 504 && l&7 == 0 {
-		return C_PPAUTO
+	if l <= 504 {
+		if l&15 == 0 {
+			return C_PPAUTO_16
+		}
+		if l&7 == 0 {
+			return C_PPAUTO
+		}
+	}
+	if l <= 1008 {
+		if l&15 == 0 {
+			return C_PQAUTO_16
+		}
 	}
 	if l <= 4095 {
+		if l&15 == 0 {
+			return C_UAUTO4K_16
+		}
 		if l&7 == 0 {
 			return C_UAUTO4K_8
 		}
@@ -1548,6 +1581,9 @@ func autoclass(l int64) int {
 		return C_UAUTO4K
 	}
 	if l <= 8190 {
+		if l&15 == 0 {
+			return C_UAUTO8K_16
+		}
 		if l&7 == 0 {
 			return C_UAUTO8K_8
 		}
@@ -1559,6 +1595,9 @@ func autoclass(l int64) int {
 		}
 	}
 	if l <= 16380 {
+		if l&15 == 0 {
+			return C_UAUTO16K_16
+		}
 		if l&7 == 0 {
 			return C_UAUTO16K_8
 		}
@@ -1566,8 +1605,16 @@ func autoclass(l int64) int {
 			return C_UAUTO16K
 		}
 	}
-	if l <= 32760 && (l&7) == 0 {
-		return C_UAUTO32K
+	if l <= 32760 {
+		if l&15 == 0 {
+			return C_UAUTO32K_16
+		}
+		if l&7 == 0 {
+			return C_UAUTO32K
+		}
+	}
+	if l <= 65520 && (l&15) == 0 {
+		return C_UAUTO64K
 	}
 	return C_LAUTO
 }
@@ -1595,6 +1642,8 @@ func (c *ctxt7) offsetshift(p *obj.Prog, v int64, cls int) int64 {
 			s = 2
 		case C_UAUTO32K, C_UOREG32K:
 			s = 3
+		case C_UAUTO64K, C_UOREG64K:
+			s = 4
 		default:
 			c.ctxt.Diag("bad class: %v\n%v", DRconv(cls), p)
 		}
@@ -1929,9 +1978,10 @@ func (c *ctxt7) oplook(p *obj.Prog) *Optab {
 		}
 		a1 = a0 + 1
 		p.From.Class = int8(a1)
-		// more specific classification of 32-bit integers
 		if p.From.Type == obj.TYPE_CONST && p.From.Name == obj.NAME_NONE {
-			if p.As == AMOVW || isADDWop(p.As) {
+			if p.As == AMOVW || isADDWop(p.As) || isANDWop(p.As) {
+				// For 32-bit instruction with constant, we need to
+				// treat its offset value as 32 bits to classify it.
 				ra0 := c.con32class(&p.From)
 				// do not break C_ADDCON2 when S bit is set
 				if (p.As == AADDSW || p.As == ASUBSW) && ra0 == C_ADDCON2 {
@@ -1940,16 +1990,8 @@ func (c *ctxt7) oplook(p *obj.Prog) *Optab {
 				a1 = ra0 + 1
 				p.From.Class = int8(a1)
 			}
-			if isANDWop(p.As) && a0 != C_BITCON {
-				// For 32-bit logical instruction with constant,
-				// the BITCON test is special in that it looks at
-				// the 64-bit which has the high 32-bit as a copy
-				// of the low 32-bit. We have handled that and
-				// don't pass it to con32class.
-				a1 = c.con32class(&p.From) + 1
-				p.From.Class = int8(a1)
-			}
 			if ((p.As == AMOVD) || isANDop(p.As) || isADDop(p.As)) && (a0 == C_LCON || a0 == C_VCON) {
+				// more specific classification of 64-bit integers
 				a1 = c.con64class(&p.From) + 1
 				p.From.Class = int8(a1)
 			}
@@ -1958,7 +2000,7 @@ func (c *ctxt7) oplook(p *obj.Prog) *Optab {
 
 	a1--
 	a3 := C_NONE + 1
-	if p.GetFrom3() != nil {
+	if p.GetFrom3() != nil && p.RestArgs[0].Pos == 0 {
 		a3 = int(p.GetFrom3().Class)
 		if a3 == 0 {
 			a3 = c.aclass(p.GetFrom3()) + 1
@@ -2028,13 +2070,18 @@ func cmp(a int, b int) bool {
 			return true
 		}
 
+	case C_MBCON:
+		if b == C_ABCON0 {
+			return true
+		}
+
 	case C_BITCON:
 		if b == C_ABCON0 || b == C_ABCON || b == C_MBCON {
 			return true
 		}
 
 	case C_MOVCON:
-		if b == C_MBCON || b == C_ZCON || b == C_ADDCON0 || b == C_AMCON {
+		if b == C_MBCON || b == C_ZCON || b == C_ADDCON0 || b == C_ABCON0 || b == C_AMCON {
 			return true
 		}
 
@@ -2084,170 +2131,282 @@ func cmp(a int, b int) bool {
 			return true
 		}
 
+	case C_NSAUTO_8:
+		if b == C_NSAUTO_16 {
+			return true
+		}
+
 	case C_NSAUTO_4:
-		if b == C_NSAUTO_8 {
+		if b == C_NSAUTO_16 || b == C_NSAUTO_8 {
 			return true
 		}
 
 	case C_NSAUTO:
 		switch b {
-		case C_NSAUTO_4, C_NSAUTO_8:
+		case C_NSAUTO_4, C_NSAUTO_8, C_NSAUTO_16:
+			return true
+		}
+
+	case C_NPAUTO_16:
+		switch b {
+		case C_NSAUTO_16:
 			return true
 		}
 
 	case C_NPAUTO:
 		switch b {
-		case C_NSAUTO_8:
+		case C_NSAUTO_16, C_NSAUTO_8, C_NPAUTO_16:
+			return true
+		}
+
+	case C_NQAUTO_16:
+		switch b {
+		case C_NSAUTO_16, C_NPAUTO_16:
 			return true
 		}
 
 	case C_NAUTO4K:
 		switch b {
-		case C_NSAUTO_8, C_NSAUTO_4, C_NSAUTO, C_NPAUTO:
+		case C_NSAUTO_16, C_NSAUTO_8, C_NSAUTO_4, C_NSAUTO, C_NPAUTO_16,
+			C_NPAUTO, C_NQAUTO_16:
+			return true
+		}
+
+	case C_PSAUTO_16:
+		if b == C_ZAUTO {
 			return true
 		}
 
 	case C_PSAUTO_8:
-		if b == C_ZAUTO {
+		if b == C_ZAUTO || b == C_PSAUTO_16 {
 			return true
 		}
 
 	case C_PSAUTO_4:
 		switch b {
-		case C_ZAUTO, C_PSAUTO_8:
+		case C_ZAUTO, C_PSAUTO_16, C_PSAUTO_8:
 			return true
 		}
 
 	case C_PSAUTO:
 		switch b {
-		case C_ZAUTO, C_PSAUTO_8, C_PSAUTO_4:
+		case C_ZAUTO, C_PSAUTO_16, C_PSAUTO_8, C_PSAUTO_4:
+			return true
+		}
+
+	case C_PPAUTO_16:
+		switch b {
+		case C_ZAUTO, C_PSAUTO_16:
 			return true
 		}
 
 	case C_PPAUTO:
 		switch b {
-		case C_ZAUTO, C_PSAUTO_8:
+		case C_ZAUTO, C_PSAUTO_16, C_PSAUTO_8, C_PPAUTO_16:
+			return true
+		}
+
+	case C_PQAUTO_16:
+		switch b {
+		case C_ZAUTO, C_PSAUTO_16, C_PPAUTO_16:
 			return true
 		}
 
 	case C_UAUTO4K:
 		switch b {
-		case C_ZAUTO, C_PSAUTO, C_PSAUTO_4, C_PSAUTO_8,
-			C_PPAUTO, C_UAUTO4K_2, C_UAUTO4K_4, C_UAUTO4K_8:
+		case C_ZAUTO, C_PSAUTO, C_PSAUTO_4, C_PSAUTO_8, C_PSAUTO_16,
+			C_PPAUTO, C_PPAUTO_16, C_PQAUTO_16,
+			C_UAUTO4K_2, C_UAUTO4K_4, C_UAUTO4K_8, C_UAUTO4K_16:
 			return true
 		}
 
 	case C_UAUTO8K:
 		switch b {
-		case C_ZAUTO, C_PSAUTO, C_PSAUTO_4, C_PSAUTO_8, C_PPAUTO,
-			C_UAUTO4K_2, C_UAUTO4K_4, C_UAUTO4K_8, C_UAUTO8K_4, C_UAUTO8K_8:
+		case C_ZAUTO, C_PSAUTO, C_PSAUTO_4, C_PSAUTO_8, C_PSAUTO_16,
+			C_PPAUTO, C_PPAUTO_16, C_PQAUTO_16,
+			C_UAUTO4K_2, C_UAUTO4K_4, C_UAUTO4K_8, C_UAUTO4K_16,
+			C_UAUTO8K_4, C_UAUTO8K_8, C_UAUTO8K_16:
 			return true
 		}
 
 	case C_UAUTO16K:
 		switch b {
-		case C_ZAUTO, C_PSAUTO, C_PSAUTO_4, C_PSAUTO_8, C_PPAUTO,
-			C_UAUTO4K_4, C_UAUTO4K_8, C_UAUTO8K_4, C_UAUTO8K_8, C_UAUTO16K_8:
+		case C_ZAUTO, C_PSAUTO, C_PSAUTO_4, C_PSAUTO_8, C_PSAUTO_16,
+			C_PPAUTO, C_PPAUTO_16, C_PQAUTO_16,
+			C_UAUTO4K_4, C_UAUTO4K_8, C_UAUTO4K_16,
+			C_UAUTO8K_4, C_UAUTO8K_8, C_UAUTO8K_16,
+			C_UAUTO16K_8, C_UAUTO16K_16:
 			return true
 		}
 
 	case C_UAUTO32K:
 		switch b {
-		case C_ZAUTO, C_PSAUTO, C_PSAUTO_4, C_PSAUTO_8,
-			C_PPAUTO, C_UAUTO4K_8, C_UAUTO8K_8, C_UAUTO16K_8:
+		case C_ZAUTO, C_PSAUTO, C_PSAUTO_4, C_PSAUTO_8, C_PSAUTO_16,
+			C_PPAUTO, C_PPAUTO_16, C_PQAUTO_16,
+			C_UAUTO4K_8, C_UAUTO4K_16,
+			C_UAUTO8K_8, C_UAUTO8K_16,
+			C_UAUTO16K_8, C_UAUTO16K_16,
+			C_UAUTO32K_16:
+			return true
+		}
+
+	case C_UAUTO64K:
+		switch b {
+		case C_ZAUTO, C_PSAUTO, C_PSAUTO_4, C_PSAUTO_8, C_PSAUTO_16,
+			C_PPAUTO_16, C_PQAUTO_16, C_UAUTO4K_16, C_UAUTO8K_16, C_UAUTO16K_16,
+			C_UAUTO32K_16:
 			return true
 		}
 
 	case C_LAUTO:
 		switch b {
-		case C_ZAUTO, C_NSAUTO, C_NSAUTO_4, C_NSAUTO_8, C_NPAUTO,
-			C_NAUTO4K, C_PSAUTO, C_PSAUTO_4, C_PSAUTO_8, C_PPAUTO,
-			C_UAUTO4K, C_UAUTO4K_2, C_UAUTO4K_4, C_UAUTO4K_8,
-			C_UAUTO8K, C_UAUTO8K_4, C_UAUTO8K_8,
-			C_UAUTO16K, C_UAUTO16K_8,
-			C_UAUTO32K:
+		case C_ZAUTO, C_NSAUTO, C_NSAUTO_4, C_NSAUTO_8, C_NSAUTO_16, C_NPAUTO_16, C_NPAUTO, C_NQAUTO_16, C_NAUTO4K,
+			C_PSAUTO, C_PSAUTO_4, C_PSAUTO_8, C_PSAUTO_16,
+			C_PPAUTO, C_PPAUTO_16, C_PQAUTO_16,
+			C_UAUTO4K, C_UAUTO4K_2, C_UAUTO4K_4, C_UAUTO4K_8, C_UAUTO4K_16,
+			C_UAUTO8K, C_UAUTO8K_4, C_UAUTO8K_8, C_UAUTO8K_16,
+			C_UAUTO16K, C_UAUTO16K_8, C_UAUTO16K_16,
+			C_UAUTO32K, C_UAUTO32K_16,
+			C_UAUTO64K:
+			return true
+		}
+
+	case C_NSOREG_8:
+		if b == C_NSOREG_16 {
 			return true
 		}
 
 	case C_NSOREG_4:
-		if b == C_NSOREG_8 {
+		if b == C_NSOREG_8 || b == C_NSOREG_16 {
 			return true
 		}
 
 	case C_NSOREG:
 		switch b {
-		case C_NSOREG_4, C_NSOREG_8:
+		case C_NSOREG_4, C_NSOREG_8, C_NSOREG_16:
+			return true
+		}
+
+	case C_NPOREG_16:
+		switch b {
+		case C_NSOREG_16:
 			return true
 		}
 
 	case C_NPOREG:
 		switch b {
-		case C_NSOREG_8:
+		case C_NSOREG_16, C_NSOREG_8, C_NPOREG_16:
+			return true
+		}
+
+	case C_NQOREG_16:
+		switch b {
+		case C_NSOREG_16, C_NPOREG_16:
 			return true
 		}
 
 	case C_NOREG4K:
 		switch b {
-		case C_NSOREG_8, C_NSOREG_4, C_NSOREG, C_NPOREG:
+		case C_NSOREG_16, C_NSOREG_8, C_NSOREG_4, C_NSOREG, C_NPOREG_16, C_NPOREG, C_NQOREG_16:
+			return true
+		}
+
+	case C_PSOREG_16:
+		if b == C_ZOREG {
+			return true
+		}
+
+	case C_PSOREG_8:
+		if b == C_ZOREG || b == C_PSOREG_16 {
 			return true
 		}
 
 	case C_PSOREG_4:
 		switch b {
-		case C_ZOREG, C_PSOREG_8:
+		case C_ZOREG, C_PSOREG_16, C_PSOREG_8:
 			return true
 		}
 
 	case C_PSOREG:
 		switch b {
-		case C_ZOREG, C_PSOREG_8, C_PSOREG_4:
+		case C_ZOREG, C_PSOREG_16, C_PSOREG_8, C_PSOREG_4:
+			return true
+		}
+
+	case C_PPOREG_16:
+		switch b {
+		case C_ZOREG, C_PSOREG_16:
 			return true
 		}
 
 	case C_PPOREG:
 		switch b {
-		case C_ZOREG, C_PSOREG_8:
+		case C_ZOREG, C_PSOREG_16, C_PSOREG_8, C_PPOREG_16:
+			return true
+		}
+
+	case C_PQOREG_16:
+		switch b {
+		case C_ZOREG, C_PSOREG_16, C_PPOREG_16:
 			return true
 		}
 
 	case C_UOREG4K:
 		switch b {
-		case C_ZOREG, C_PSOREG_4, C_PSOREG_8, C_PSOREG,
-			C_PPOREG, C_UOREG4K_2, C_UOREG4K_4, C_UOREG4K_8:
+		case C_ZOREG, C_PSOREG, C_PSOREG_4, C_PSOREG_8, C_PSOREG_16,
+			C_PPOREG, C_PPOREG_16, C_PQOREG_16,
+			C_UOREG4K_2, C_UOREG4K_4, C_UOREG4K_8, C_UOREG4K_16:
 			return true
 		}
 
 	case C_UOREG8K:
 		switch b {
-		case C_ZOREG, C_PSOREG_4, C_PSOREG_8, C_PSOREG,
-			C_PPOREG, C_UOREG4K_2, C_UOREG4K_4, C_UOREG4K_8,
-			C_UOREG8K_4, C_UOREG8K_8:
+		case C_ZOREG, C_PSOREG, C_PSOREG_4, C_PSOREG_8, C_PSOREG_16,
+			C_PPOREG, C_PPOREG_16, C_PQOREG_16,
+			C_UOREG4K_2, C_UOREG4K_4, C_UOREG4K_8, C_UOREG4K_16,
+			C_UOREG8K_4, C_UOREG8K_8, C_UOREG8K_16:
 			return true
 		}
 
 	case C_UOREG16K:
 		switch b {
-		case C_ZOREG, C_PSOREG_4, C_PSOREG_8, C_PSOREG,
-			C_PPOREG, C_UOREG4K_4, C_UOREG4K_8, C_UOREG8K_4,
-			C_UOREG8K_8, C_UOREG16K_8:
+		case C_ZOREG, C_PSOREG, C_PSOREG_4, C_PSOREG_8, C_PSOREG_16,
+			C_PPOREG, C_PPOREG_16, C_PQOREG_16,
+			C_UOREG4K_4, C_UOREG4K_8, C_UOREG4K_16,
+			C_UOREG8K_4, C_UOREG8K_8, C_UOREG8K_16,
+			C_UOREG16K_8, C_UOREG16K_16:
 			return true
 		}
 
 	case C_UOREG32K:
 		switch b {
-		case C_ZOREG, C_PSOREG_4, C_PSOREG_8, C_PSOREG,
-			C_PPOREG, C_UOREG4K_8, C_UOREG8K_8, C_UOREG16K_8:
+		case C_ZOREG, C_PSOREG, C_PSOREG_4, C_PSOREG_8, C_PSOREG_16,
+			C_PPOREG, C_PPOREG_16, C_PQOREG_16,
+			C_UOREG4K_8, C_UOREG4K_16,
+			C_UOREG8K_8, C_UOREG8K_16,
+			C_UOREG16K_8, C_UOREG16K_16,
+			C_UOREG32K_16:
+			return true
+		}
+
+	case C_UOREG64K:
+		switch b {
+		case C_ZOREG, C_PSOREG, C_PSOREG_4, C_PSOREG_8, C_PSOREG_16,
+			C_PPOREG_16, C_PQOREG_16, C_UOREG4K_16, C_UOREG8K_16, C_UOREG16K_16,
+			C_UOREG32K_16:
 			return true
 		}
 
 	case C_LOREG:
 		switch b {
-		case C_ZOREG, C_NSOREG, C_NSOREG_4, C_NSOREG_8, C_NPOREG,
-			C_NOREG4K, C_PSOREG_4, C_PSOREG_8, C_PSOREG, C_PPOREG,
-			C_UOREG4K, C_UOREG4K_2, C_UOREG4K_4, C_UOREG4K_8,
-			C_UOREG8K, C_UOREG8K_4, C_UOREG8K_8,
-			C_UOREG16K, C_UOREG16K_8,
-			C_UOREG32K:
+		case C_ZOREG, C_NSOREG, C_NSOREG_4, C_NSOREG_8, C_NSOREG_16, C_NPOREG, C_NPOREG_16, C_NQOREG_16, C_NOREG4K,
+			C_PSOREG, C_PSOREG_4, C_PSOREG_8, C_PSOREG_16,
+			C_PPOREG, C_PPOREG_16, C_PQOREG_16,
+			C_UOREG4K, C_UOREG4K_2, C_UOREG4K_4, C_UOREG4K_8, C_UOREG4K_16,
+			C_UOREG8K, C_UOREG8K_4, C_UOREG8K_8, C_UOREG8K_16,
+			C_UOREG16K, C_UOREG16K_8, C_UOREG16K_16,
+			C_UOREG32K, C_UOREG32K_16,
+			C_UOREG64K:
 			return true
 		}
 
@@ -2400,10 +2559,18 @@ func buildop(ctxt *obj.Link) {
 			oprangeset(AMOVZW, t)
 
 		case ASWPD:
-			for i := range atomicInstructions {
+			for i := range atomicLDADD {
+				oprangeset(i, t)
+			}
+			for i := range atomicSWP {
+				if i == ASWPD {
+					continue
+				}
 				oprangeset(i, t)
 			}
 
+		case ACASPD:
+			oprangeset(ACASPW, t)
 		case ABEQ:
 			oprangeset(ABNE, t)
 			oprangeset(ABCS, t)
@@ -2562,6 +2729,10 @@ func buildop(ctxt *obj.Link) {
 			obj.ATEXT:
 			break
 
+		case AFLDPQ:
+			break
+		case AFSTPQ:
+			break
 		case ALDP:
 			oprangeset(AFLDPD, t)
 
@@ -2675,7 +2846,8 @@ func buildop(ctxt *obj.Link) {
 		case AFCSELD:
 			oprangeset(AFCSELS, t)
 
-		case AFMOVS, AFMOVD, AFMOVQ:
+		case AFMOVQ, AFMOVD, AFMOVS,
+			AVMOVQ, AVMOVD, AVMOVS:
 			break
 
 		case AFCVTZSD:
@@ -2761,12 +2933,15 @@ func buildop(ctxt *obj.Link) {
 			oprangeset(AVBSL, t)
 			oprangeset(AVBIT, t)
 			oprangeset(AVCMTST, t)
+			oprangeset(AVUMAX, t)
+			oprangeset(AVUMIN, t)
 			oprangeset(AVUZP1, t)
 			oprangeset(AVUZP2, t)
 			oprangeset(AVBIF, t)
 
 		case AVADD:
 			oprangeset(AVSUB, t)
+			oprangeset(AVRAX1, t)
 
 		case AAESD:
 			oprangeset(AAESE, t)
@@ -2801,6 +2976,8 @@ func buildop(ctxt *obj.Link) {
 		case AVUSHR:
 			oprangeset(AVSHL, t)
 			oprangeset(AVSRI, t)
+			oprangeset(AVSLI, t)
+			oprangeset(AVUSRA, t)
 
 		case AVREV32:
 			oprangeset(AVCNT, t)
@@ -2825,6 +3002,12 @@ func buildop(ctxt *obj.Link) {
 			oprangeset(AVLD4, t)
 			oprangeset(AVLD4R, t)
 
+		case AVEOR3:
+			oprangeset(AVBCAX, t)
+
+		case AVUADDW:
+			oprangeset(AVUADDW2, t)
+
 		case ASHA1H,
 			AVCNT,
 			AVMOV,
@@ -2837,7 +3020,8 @@ func buildop(ctxt *obj.Link) {
 			AVDUP,
 			AVMOVI,
 			APRFM,
-			AVEXT:
+			AVEXT,
+			AVXAR:
 			break
 
 		case obj.ANOP,
@@ -3033,6 +3217,9 @@ func (c *ctxt7) asmout(p *obj.Prog, o *Optab, out []uint32) {
 		o1 |= (uint32(rf&31) << 16) | (uint32(r&31) << 5) | uint32(rt&31)
 
 	case 2: /* add/sub $(uimm12|uimm24)[,R],R; cmp $(uimm12|uimm24),R */
+		if p.To.Reg == REG_RSP && isADDSop(p.As) {
+			c.ctxt.Diag("illegal destination register: %v\n", p)
+		}
 		o1 = c.opirr(p, p.As)
 
 		rt := int(p.To.Reg)
@@ -3058,13 +3245,17 @@ func (c *ctxt7) asmout(p *obj.Prog, o *Optab, out []uint32) {
 		if is64bit == 0 && amount >= 32 {
 			c.ctxt.Diag("shift amount out of range 0 to 31: %v", p)
 		}
+		shift := (p.From.Offset >> 22) & 3
+		if (shift > 2 || shift < 0) && (isADDop(p.As) || isADDWop(p.As) || isNEGop(p.As)) {
+			c.ctxt.Diag("unsupported shift operator: %v", p)
+		}
 		o1 |= uint32(p.From.Offset) /* includes reg, op, etc */
 		rt := int(p.To.Reg)
 		if p.To.Type == obj.TYPE_NONE {
 			rt = REGZERO
 		}
 		r := int(p.Reg)
-		if p.As == AMVN || p.As == AMVNW {
+		if p.As == AMVN || p.As == AMVNW || isNEGop(p.As) {
 			r = REGZERO
 		} else if r == 0 {
 			r = rt
@@ -3094,8 +3285,10 @@ func (c *ctxt7) asmout(p *obj.Prog, o *Optab, out []uint32) {
 		}
 
 		if int(o.size) == 8 {
-			o1 = c.oaddi(p, op, v&0xfff000, r, REGTMP)
-			o2 = c.oaddi(p, op, v&0x000fff, REGTMP, rt)
+			// NOTE: this case does not use REGTMP. If it ever does,
+			// remove the NOTUSETMP flag in optab.
+			o1 = c.oaddi(p, op, v&0xfff000, r, rt)
+			o2 = c.oaddi(p, op, v&0x000fff, rt, rt)
 			break
 		}
 
@@ -3118,12 +3311,13 @@ func (c *ctxt7) asmout(p *obj.Prog, o *Optab, out []uint32) {
 
 	case 6: /* b ,O(R); bl ,O(R) */
 		o1 = c.opbrr(p, p.As)
-
 		o1 |= uint32(p.To.Reg&31) << 5
-		rel := obj.Addrel(c.cursym)
-		rel.Off = int32(c.pc)
-		rel.Siz = 0
-		rel.Type = objabi.R_CALLIND
+		if p.As == obj.ACALL {
+			rel := obj.Addrel(c.cursym)
+			rel.Off = int32(c.pc)
+			rel.Siz = 0
+			rel.Type = objabi.R_CALLIND
+		}
 
 	case 7: /* beq s */
 		o1 = c.opbra(p, p.As)
@@ -3213,6 +3407,12 @@ func (c *ctxt7) asmout(p *obj.Prog, o *Optab, out []uint32) {
 		o4 = os[3]
 
 	case 13: /* addop $vcon, [R], R (64 bit literal); cmp $lcon,R -> addop $lcon,R, ZR */
+		if p.Reg == REGTMP {
+			c.ctxt.Diag("cannot use REGTMP as source: %v\n", p)
+		}
+		if p.To.Reg == REG_RSP && isADDSop(p.As) {
+			c.ctxt.Diag("illegal destination register: %v\n", p)
+		}
 		o := uint32(0)
 		num := uint8(0)
 		cls := oclass(&p.From)
@@ -3327,27 +3527,25 @@ func (c *ctxt7) asmout(p *obj.Prog, o *Optab, out []uint32) {
 		o1 = c.oprrr(p, p.As)
 
 		cond := int(p.From.Reg)
-		if cond < COND_EQ || cond > COND_NV {
+		// AL and NV are not allowed for CINC/CINV/CNEG/CSET/CSETM instructions
+		if cond < COND_EQ || cond > COND_NV || (cond == COND_AL || cond == COND_NV) && p.From3Type() == obj.TYPE_NONE {
 			c.ctxt.Diag("invalid condition: %v", p)
 		} else {
 			cond -= COND_EQ
 		}
 
 		r := int(p.Reg)
-		var rf int
-		if r != 0 {
-			if p.From3Type() == obj.TYPE_NONE {
-				/* CINC/CINV/CNEG */
-				rf = r
-				cond ^= 1
-			} else {
-				rf = int(p.GetFrom3().Reg) /* CSEL */
+		var rf int = r
+		if p.From3Type() == obj.TYPE_NONE {
+			/* CINC/CINV/CNEG or CSET/CSETM*/
+			if r == 0 {
+				/* CSET/CSETM */
+				rf = REGZERO
+				r = rf
 			}
-		} else {
-			/* CSET */
-			rf = REGZERO
-			r = rf
 			cond ^= 1
+		} else {
+			rf = int(p.GetFrom3().Reg) /* CSEL */
 		}
 
 		rt := int(p.To.Reg)
@@ -3382,10 +3580,10 @@ func (c *ctxt7) asmout(p *obj.Prog, o *Optab, out []uint32) {
 			r = int(o.param)
 		}
 		if v < 0 || v%sz != 0 { /* unscaled 9-bit signed */
-			o1 = c.olsr9s(p, int32(c.opstr9(p, p.As)), v, r, int(p.From.Reg))
+			o1 = c.olsr9s(p, int32(c.opstr(p, p.As)), v, r, int(p.From.Reg))
 		} else {
 			v = int32(c.offsetshift(p, int64(v), int(o.a4)))
-			o1 = c.olsr12u(p, int32(c.opstr12(p, p.As)), v, r, int(p.From.Reg))
+			o1 = c.olsr12u(p, int32(c.opstr(p, p.As)), v, r, int(p.From.Reg))
 		}
 
 	case 21: /* movT O(R),R -> ldrT */
@@ -3397,11 +3595,11 @@ func (c *ctxt7) asmout(p *obj.Prog, o *Optab, out []uint32) {
 			r = int(o.param)
 		}
 		if v < 0 || v%sz != 0 { /* unscaled 9-bit signed */
-			o1 = c.olsr9s(p, int32(c.opldr9(p, p.As)), v, r, int(p.To.Reg))
+			o1 = c.olsr9s(p, int32(c.opldr(p, p.As)), v, r, int(p.To.Reg))
 		} else {
 			v = int32(c.offsetshift(p, int64(v), int(o.a1)))
 			//print("offset=%lld v=%ld a1=%d\n", instoffset, v, o->a1);
-			o1 = c.olsr12u(p, int32(c.opldr12(p, p.As)), v, r, int(p.To.Reg))
+			o1 = c.olsr12u(p, int32(c.opldr(p, p.As)), v, r, int(p.To.Reg))
 		}
 
 	case 22: /* movT (R)O!,R; movT O(R)!, R -> ldrT */
@@ -3412,9 +3610,9 @@ func (c *ctxt7) asmout(p *obj.Prog, o *Optab, out []uint32) {
 		v := int32(p.From.Offset)
 
 		if v < -256 || v > 255 {
-			c.ctxt.Diag("offset out of range [-255,254]: %v", p)
+			c.ctxt.Diag("offset out of range [-256,255]: %v", p)
 		}
-		o1 = c.opldrpp(p, p.As)
+		o1 = c.opldr(p, p.As)
 		if o.scond == C_XPOST {
 			o1 |= 1 << 10
 		} else {
@@ -3430,9 +3628,9 @@ func (c *ctxt7) asmout(p *obj.Prog, o *Optab, out []uint32) {
 		v := int32(p.To.Offset)
 
 		if v < -256 || v > 255 {
-			c.ctxt.Diag("offset out of range [-255,254]: %v", p)
+			c.ctxt.Diag("offset out of range [-256,255]: %v", p)
 		}
-		o1 = LD2STR(c.opldrpp(p, p.As))
+		o1 = c.opstr(p, p.As)
 		if o.scond == C_XPOST {
 			o1 |= 1 << 10
 		} else {
@@ -3468,14 +3666,45 @@ func (c *ctxt7) asmout(p *obj.Prog, o *Optab, out []uint32) {
 		rt := int(p.To.Reg)
 		o1 |= (uint32(rf&31) << 16) | (REGZERO & 31 << 5) | uint32(rt&31)
 
-	case 26: /* negX Rm<<s, Rd -> subX Rm<<s, ZR, Rd */
-		o1 = c.oprrr(p, p.As)
+	case 26: // op R<<n, RSP, RSP (extended register)
+		// Refer to ARM reference manual, if "Rd" or "Rn" is RSP,
+		// it can be encoded as op(extended regster) instruction.
+		if !(p.To.Reg == REGSP || p.Reg == REGSP) {
+			c.ctxt.Diag("expected SP reference: %v", p)
+			break
+		}
+		if p.To.Reg == REGSP && (p.As == AADDS || p.As == AADDSW || p.As == ASUBS || p.As == ASUBSW) {
+			c.ctxt.Diag("unexpected SP reference: %v", p)
+			break
+		}
+		amount := (p.From.Offset >> 10) & 63
+		shift := (p.From.Offset >> 22) & 3
+		if shift != 0 {
+			c.ctxt.Diag("illegal combination: %v", p)
+			break
+		}
 
-		o1 |= uint32(p.From.Offset) /* includes reg, op, etc */
+		if amount > 4 {
+			c.ctxt.Diag("the left shift amount out of range 0 to 4: %v", p)
+			break
+		}
+		rf := (p.From.Offset >> 16) & 31
 		rt := int(p.To.Reg)
-		o1 |= (REGZERO & 31 << 5) | uint32(rt&31)
+		r := int(p.Reg)
+		if p.To.Type == obj.TYPE_NONE {
+			rt = REGZERO
+		}
+		if r == 0 {
+			r = rt
+		}
+
+		o1 = c.opxrrr(p, p.As, false)
+		o1 |= uint32(rf)<<16 | uint32(amount&7)<<10 | (uint32(r&31) << 5) | uint32(rt&31)
 
 	case 27: /* op Rm<<n[,Rn],Rd (extended register) */
+		if p.To.Reg == REG_RSP && isADDSop(p.As) {
+			c.ctxt.Diag("illegal destination register: %v\n", p)
+		}
 		if (p.From.Reg-obj.RBaseARM64)&REG_EXT != 0 {
 			amount := (p.From.Reg >> 5) & 7
 			if amount > 4 {
@@ -3498,6 +3727,9 @@ func (c *ctxt7) asmout(p *obj.Prog, o *Optab, out []uint32) {
 		o1 |= (uint32(r&31) << 5) | uint32(rt&31)
 
 	case 28: /* logop $vcon, [R], R (64 bit literal) */
+		if p.Reg == REGTMP {
+			c.ctxt.Diag("cannot use REGTMP as source: %v\n", p)
+		}
 		o := uint32(0)
 		num := uint8(0)
 		cls := oclass(&p.From)
@@ -3584,7 +3816,7 @@ func (c *ctxt7) asmout(p *obj.Prog, o *Optab, out []uint32) {
 		}
 
 		o1 = c.oaddi(p, int32(c.opirr(p, AADD)), hi, r, REGTMP)
-		o2 = c.olsr12u(p, int32(c.opstr12(p, p.As)), ((v-hi)>>uint(s))&0xFFF, REGTMP, int(p.From.Reg))
+		o2 = c.olsr12u(p, int32(c.opstr(p, p.As)), ((v-hi)>>uint(s))&0xFFF, REGTMP, int(p.From.Reg))
 		break
 
 	storeusepool:
@@ -3628,7 +3860,7 @@ func (c *ctxt7) asmout(p *obj.Prog, o *Optab, out []uint32) {
 		}
 
 		o1 = c.oaddi(p, int32(c.opirr(p, AADD)), hi, r, REGTMP)
-		o2 = c.olsr12u(p, int32(c.opldr12(p, p.As)), ((v-hi)>>uint(s))&0xFFF, REGTMP, int(p.To.Reg))
+		o2 = c.olsr12u(p, int32(c.opldr(p, p.As)), ((v-hi)>>uint(s))&0xFFF, REGTMP, int(p.To.Reg))
 		break
 
 	loadusepool:
@@ -3645,6 +3877,9 @@ func (c *ctxt7) asmout(p *obj.Prog, o *Optab, out []uint32) {
 		o1 = c.opirr(p, p.As)
 
 		d := p.From.Offset
+		if d == 0 {
+			c.ctxt.Diag("zero shifts cannot be handled correctly: %v", p)
+		}
 		s := movcon(d)
 		if s < 0 || s >= 4 {
 			c.ctxt.Diag("bad constant for MOVK: %#x\n%v", uint64(d), p)
@@ -3886,17 +4121,27 @@ func (c *ctxt7) asmout(p *obj.Prog, o *Optab, out []uint32) {
 		o1 |= uint32(p.From.Reg&31) << 5
 		o1 |= uint32(p.To.Reg & 31)
 
-	case 47: /* SWPx/LDADDx/LDANDx/LDEORx/LDORx Rs, (Rb), Rt */
+	case 47: // SWPx/LDADDx/LDCLRx/LDEORx/LDORx/CASx Rs, (Rb), Rt
 		rs := p.From.Reg
 		rt := p.RegTo2
 		rb := p.To.Reg
 
-		fields := atomicInstructions[p.As]
-		// rt can't be sp. rt can't be r31 when field A is 0, A bit is the 23rd bit.
-		if rt == REG_RSP || (rt == REGZERO && (fields&(1<<23) == 0)) {
+		// rt can't be sp.
+		if rt == REG_RSP {
 			c.ctxt.Diag("illegal destination register: %v\n", p)
 		}
-		o1 |= fields | uint32(rs&31)<<16 | uint32(rb&31)<<5 | uint32(rt&31)
+		if enc, ok := atomicLDADD[p.As]; ok {
+			// for LDADDx-like instructions, rt can't be r31 when field.enc A is 0, A bit is the 23rd bit.
+			if (rt == REGZERO) && (enc&(1<<23) == 0) {
+				c.ctxt.Diag("illegal destination register: %v\n", p)
+			}
+			o1 |= enc
+		} else if enc, ok := atomicSWP[p.As]; ok {
+			o1 |= enc
+		} else {
+			c.ctxt.Diag("invalid atomic instructions: %v\n", p)
+		}
+		o1 |= uint32(rs&31)<<16 | uint32(rb&31)<<5 | uint32(rt&31)
 
 	case 48: /* ADD $C_ADDCON2, Rm, Rd */
 		// NOTE: this case does not use REGTMP. If it ever does,
@@ -3949,6 +4194,10 @@ func (c *ctxt7) asmout(p *obj.Prog, o *Optab, out []uint32) {
 		r := int(p.Reg)
 		if r == 0 {
 			r = rt
+		}
+		if r == REG_RSP {
+			c.ctxt.Diag("illegal source register: %v", p)
+			break
 		}
 		mode := 64
 		v := uint64(p.From.Offset)
@@ -4082,8 +4331,13 @@ func (c *ctxt7) asmout(p *obj.Prog, o *Optab, out []uint32) {
 		if p.Reg == REGTMP {
 			c.ctxt.Diag("cannot use REGTMP as source: %v\n", p)
 		}
+		if p.To.Reg == REG_RSP && isADDSop(p.As) {
+			c.ctxt.Diag("illegal destination register: %v\n", p)
+		}
+		lsl0 := LSL0_64
 		if isADDWop(p.As) || isANDWop(p.As) {
 			o1 = c.omovconst(AMOVW, p, &p.From, REGTMP)
+			lsl0 = LSL0_32
 		} else {
 			o1 = c.omovconst(AMOVD, p, &p.From, REGTMP)
 		}
@@ -4099,7 +4353,7 @@ func (c *ctxt7) asmout(p *obj.Prog, o *Optab, out []uint32) {
 		if p.To.Reg == REGSP || r == REGSP {
 			o2 = c.opxrrr(p, p.As, false)
 			o2 |= REGTMP & 31 << 16
-			o2 |= LSL0_64
+			o2 |= uint32(lsl0)
 		} else {
 			o2 = c.oprrr(p, p.As)
 			o2 |= REGTMP & 31 << 16 /* shift is 0 */
@@ -4109,6 +4363,9 @@ func (c *ctxt7) asmout(p *obj.Prog, o *Optab, out []uint32) {
 
 		/* reloc ops */
 	case 64: /* movT R,addr -> adrp + add + movT R, (REGTMP) */
+		if p.From.Reg == REGTMP {
+			c.ctxt.Diag("cannot use REGTMP as source: %v\n", p)
+		}
 		o1 = ADR(1, 0, REGTMP)
 		o2 = c.opirr(p, AADD) | REGTMP&31<<5 | REGTMP&31
 		rel := obj.Addrel(c.cursym)
@@ -4117,7 +4374,7 @@ func (c *ctxt7) asmout(p *obj.Prog, o *Optab, out []uint32) {
 		rel.Sym = p.To.Sym
 		rel.Add = p.To.Offset
 		rel.Type = objabi.R_ADDRARM64
-		o3 = c.olsr12u(p, int32(c.opstr12(p, p.As)), 0, REGTMP, int(p.From.Reg))
+		o3 = c.olsr12u(p, int32(c.opstr(p, p.As)), 0, REGTMP, int(p.From.Reg))
 
 	case 65: /* movT addr,R -> adrp + add + movT (REGTMP), R */
 		o1 = ADR(1, 0, REGTMP)
@@ -4128,7 +4385,7 @@ func (c *ctxt7) asmout(p *obj.Prog, o *Optab, out []uint32) {
 		rel.Sym = p.From.Sym
 		rel.Add = p.From.Offset
 		rel.Type = objabi.R_ADDRARM64
-		o3 = c.olsr12u(p, int32(c.opldr12(p, p.As)), 0, REGTMP, int(p.To.Reg))
+		o3 = c.olsr12u(p, int32(c.opldr(p, p.As)), 0, REGTMP, int(p.To.Reg))
 
 	case 66: /* ldp O(R)!, (r1, r2); ldp (R)O!, (r1, r2) */
 		v := int32(c.regoff(&p.From))
@@ -4181,7 +4438,7 @@ func (c *ctxt7) asmout(p *obj.Prog, o *Optab, out []uint32) {
 
 	case 70: /* IE model movd $tlsvar, reg -> adrp REGTMP, 0; ldr reg, [REGTMP, #0] + relocs */
 		o1 = ADR(1, 0, REGTMP)
-		o2 = c.olsr12u(p, int32(c.opldr12(p, AMOVD)), 0, REGTMP, int(p.To.Reg))
+		o2 = c.olsr12u(p, int32(c.opldr(p, AMOVD)), 0, REGTMP, int(p.To.Reg))
 		rel := obj.Addrel(c.cursym)
 		rel.Off = int32(c.pc)
 		rel.Siz = 8
@@ -4194,7 +4451,7 @@ func (c *ctxt7) asmout(p *obj.Prog, o *Optab, out []uint32) {
 
 	case 71: /* movd sym@GOT, reg -> adrp REGTMP, #0; ldr reg, [REGTMP, #0] + relocs */
 		o1 = ADR(1, 0, REGTMP)
-		o2 = c.olsr12u(p, int32(c.opldr12(p, AMOVD)), 0, REGTMP, int(p.To.Reg))
+		o2 = c.olsr12u(p, int32(c.opldr(p, AMOVD)), 0, REGTMP, int(p.To.Reg))
 		rel := obj.Addrel(c.cursym)
 		rel.Off = int32(c.pc)
 		rel.Siz = 8
@@ -4202,7 +4459,7 @@ func (c *ctxt7) asmout(p *obj.Prog, o *Optab, out []uint32) {
 		rel.Add = 0
 		rel.Type = objabi.R_ARM64_GOTPCREL
 
-	case 72: /* vaddp/vand/vcmeq/vorr/vadd/veor/vfmla/vfmls/vbit/vbsl/vcmtst/vsub/vbif/vuzip1/vuzip2 Vm.<T>, Vn.<T>, Vd.<T> */
+	case 72: /* vaddp/vand/vcmeq/vorr/vadd/veor/vfmla/vfmls/vbit/vbsl/vcmtst/vsub/vbif/vuzip1/vuzip2/vrax1 Vm.<T>, Vn.<T>, Vd.<T> */
 		af := int((p.From.Reg >> 5) & 15)
 		af3 := int((p.Reg >> 5) & 15)
 		at := int((p.To.Reg >> 5) & 15)
@@ -4252,6 +4509,10 @@ func (c *ctxt7) asmout(p *obj.Prog, o *Optab, out []uint32) {
 			if af != ARNG_2D && af != ARNG_2S && af != ARNG_4S {
 				c.ctxt.Diag("invalid arrangement: %v", p)
 			}
+		case AVUMAX, AVUMIN:
+			if af == ARNG_2D {
+				c.ctxt.Diag("invalid arrangement: %v", p)
+			}
 		}
 		switch p.As {
 		case AVAND, AVEOR:
@@ -4266,6 +4527,12 @@ func (c *ctxt7) asmout(p *obj.Prog, o *Optab, out []uint32) {
 			} else {
 				size = 0
 			}
+		case AVRAX1:
+			if af != ARNG_2D {
+				c.ctxt.Diag("invalid arrangement: %v", p)
+			}
+			size = 0
+			Q = 0
 		}
 
 		o1 |= (uint32(Q&1) << 30) | (uint32(size&3) << 22) | (uint32(rf&31) << 16) | (uint32(r&31) << 5) | uint32(rt&31)
@@ -4330,6 +4597,9 @@ func (c *ctxt7) asmout(p *obj.Prog, o *Optab, out []uint32) {
 		//	add Rtmp, R, Rtmp
 		//	ldp (Rtmp), (R1, R2)
 		r := int(p.From.Reg)
+		if r == REGTMP {
+			c.ctxt.Diag("REGTMP used in large offset load: %v", p)
+		}
 		if r == obj.REG_NONE {
 			r = int(o.param)
 		}
@@ -4346,6 +4616,9 @@ func (c *ctxt7) asmout(p *obj.Prog, o *Optab, out []uint32) {
 	case 76:
 		//	add $O, R, Rtmp or sub $O, R, Rtmp
 		//	stp (R1, R2), (Rtmp)
+		if p.From.Reg == REGTMP || p.From.Offset == REGTMP {
+			c.ctxt.Diag("cannot use REGTMP as source: %v", p)
+		}
 		r := int(p.To.Reg)
 		if r == obj.REG_NONE {
 			r = int(o.param)
@@ -4373,6 +4646,9 @@ func (c *ctxt7) asmout(p *obj.Prog, o *Optab, out []uint32) {
 		//	add Rtmp, R, Rtmp
 		//	stp (R1, R2), (Rtmp)
 		r := int(p.To.Reg)
+		if r == REGTMP || p.From.Reg == REGTMP || p.From.Offset == REGTMP {
+			c.ctxt.Diag("REGTMP used in large offset store: %v", p)
+		}
 		if r == obj.REG_NONE {
 			r = int(o.param)
 		}
@@ -4462,13 +4738,13 @@ func (c *ctxt7) asmout(p *obj.Prog, o *Optab, out []uint32) {
 		o1 |= (uint32(Q&1) << 30) | (uint32(imm5&0x1f) << 16)
 		o1 |= (uint32(rf&31) << 5) | uint32(rt&31)
 
-	case 80: /* vmov V.<T>[index], Vn */
+	case 80: /* vmov/vdup V.<T>[index], Vn */
 		rf := int(p.From.Reg)
 		rt := int(p.To.Reg)
 		imm5 := 0
 		index := int(p.From.Index)
 		switch p.As {
-		case AVMOV:
+		case AVMOV, AVDUP:
 			o1 = 1<<30 | 15<<25 | 1<<10
 			switch (p.From.Reg >> 5) & 15 {
 			case ARNG_B:
@@ -4518,7 +4794,7 @@ func (c *ctxt7) asmout(p *obj.Prog, o *Optab, out []uint32) {
 		o1 = c.maskOpvldvst(p, o1)
 		o1 |= uint32(r&31) << 5
 
-	case 82: /* vmov Rn, Vd.<T> */
+	case 82: /* vmov/vdup Rn, Vd.<T> */
 		rf := int(p.From.Reg)
 		rt := int(p.To.Reg)
 		o1 = 7<<25 | 3<<10
@@ -4546,7 +4822,7 @@ func (c *ctxt7) asmout(p *obj.Prog, o *Optab, out []uint32) {
 			Q = 1
 			imm5 = 2
 		default:
-			c.ctxt.Diag("invalid arrangement on VMOV Rn, Vd.<T>: %v\n", p)
+			c.ctxt.Diag("invalid arrangement: %v\n", p)
 		}
 		o1 |= (Q & 1 << 30) | (imm5 & 0x1f << 16)
 		o1 |= (uint32(rf&31) << 5) | uint32(rt&31)
@@ -4678,6 +4954,9 @@ func (c *ctxt7) asmout(p *obj.Prog, o *Optab, out []uint32) {
 		o1 |= (uint32(Q&1) << 30) | (uint32((r>>5)&7) << 16) | (uint32(r&0x1f) << 5) | uint32(rt&31)
 
 	case 87: /* stp (r,r), addr(SB) -> adrp + add + stp */
+		if p.From.Reg == REGTMP || p.From.Offset == REGTMP {
+			c.ctxt.Diag("cannot use REGTMP as source: %v", p)
+		}
 		o1 = ADR(1, 0, REGTMP)
 		o2 = c.opirr(p, AADD) | REGTMP&31<<5 | REGTMP&31
 		rel := obj.Addrel(c.cursym)
@@ -4749,7 +5028,7 @@ func (c *ctxt7) asmout(p *obj.Prog, o *Optab, out []uint32) {
 			}
 		}
 
-		o1 = c.opldrpp(p, p.As)
+		o1 = c.opirr(p, p.As)
 		o1 |= (uint32(r&31) << 5) | (uint32((imm>>3)&0xfff) << 10) | (uint32(v & 31))
 
 	case 92: /* vmov Vn.<T>[index], Vd.<T>[index] */
@@ -4793,47 +5072,31 @@ func (c *ctxt7) asmout(p *obj.Prog, o *Optab, out []uint32) {
 		}
 		o1 |= (uint32(imm5&0x1f) << 16) | (uint32(imm4&0xf) << 11) | (uint32(rf&31) << 5) | uint32(rt&31)
 
-	case 93: /* vpmull{2} Vm.<T>, Vn.<T>, Vd */
-		af := int((p.From.Reg >> 5) & 15)
-		at := int((p.To.Reg >> 5) & 15)
-		a := int((p.Reg >> 5) & 15)
+	case 93: /* vpmull{2} Vm.<Tb>, Vn.<Tb>, Vd.<Ta> */
+		af := uint8((p.From.Reg >> 5) & 15)
+		at := uint8((p.To.Reg >> 5) & 15)
+		a := uint8((p.Reg >> 5) & 15)
+		if af != a {
+			c.ctxt.Diag("invalid arrangement: %v", p)
+		}
 
 		var Q, size uint32
-		if p.As == AVPMULL {
-			Q = 0
-		} else {
+		if p.As == AVPMULL2 {
 			Q = 1
 		}
-
-		var fArng int
-		switch at {
-		case ARNG_8H:
-			if Q == 0 {
-				fArng = ARNG_8B
-			} else {
-				fArng = ARNG_16B
-			}
+		switch pack(Q, at, af) {
+		case pack(0, ARNG_8H, ARNG_8B), pack(1, ARNG_8H, ARNG_16B):
 			size = 0
-		case ARNG_1Q:
-			if Q == 0 {
-				fArng = ARNG_1D
-			} else {
-				fArng = ARNG_2D
-			}
+		case pack(0, ARNG_1Q, ARNG_1D), pack(1, ARNG_1Q, ARNG_2D):
 			size = 3
 		default:
-			c.ctxt.Diag("invalid arrangement on Vd.<T>: %v", p)
-		}
-
-		if af != a || af != fArng {
-			c.ctxt.Diag("invalid arrangement: %v", p)
+			c.ctxt.Diag("operand mismatch: %v\n", p)
 		}
 
 		o1 = c.oprrr(p, p.As)
 		rf := int((p.From.Reg) & 31)
 		rt := int((p.To.Reg) & 31)
 		r := int((p.Reg) & 31)
-
 		o1 |= ((Q & 1) << 30) | ((size & 3) << 22) | (uint32(rf&31) << 16) | (uint32(r&31) << 5) | uint32(rt&31)
 
 	case 94: /* vext $imm4, Vm.<T>, Vn.<T>, Vd.<T> */
@@ -4871,7 +5134,7 @@ func (c *ctxt7) asmout(p *obj.Prog, o *Optab, out []uint32) {
 
 		o1 |= ((Q & 1) << 30) | (uint32(r&31) << 16) | (uint32(index&15) << 11) | (uint32(rf&31) << 5) | uint32(rt&31)
 
-	case 95: /* vushr $shift, Vn.<T>, Vd.<T> */
+	case 95: /* vushr/vshl/vsri/vsli/vusra $shift, Vn.<T>, Vd.<T> */
 		at := int((p.To.Reg >> 5) & 15)
 		af := int((p.Reg >> 5) & 15)
 		shift := int(p.From.Offset)
@@ -4908,14 +5171,13 @@ func (c *ctxt7) asmout(p *obj.Prog, o *Optab, out []uint32) {
 		}
 
 		imm := 0
-
 		switch p.As {
-		case AVUSHR, AVSRI:
+		case AVUSHR, AVSRI, AVUSRA:
 			imm = esize*2 - shift
 			if imm < esize || imm > imax {
 				c.ctxt.Diag("shift out of range: %v", p)
 			}
-		case AVSHL:
+		case AVSHL, AVSLI:
 			imm = esize + shift
 			if imm > imax {
 				c.ctxt.Diag("shift out of range: %v", p)
@@ -4928,7 +5190,7 @@ func (c *ctxt7) asmout(p *obj.Prog, o *Optab, out []uint32) {
 		rt := int((p.To.Reg) & 31)
 		rf := int((p.Reg) & 31)
 
-		o1 |= ((Q & 1) << 30) | (uint32(imm&127) << 16) | (uint32(rf&31) << 5) | uint32(rt&31)
+		o1 |= ((Q & 1) << 30) | (uint32(imm&0x7f) << 16) | (uint32(rf&31) << 5) | uint32(rt&31)
 
 	case 96: /* vst1 Vt1.<T>[index], offset(Rn) */
 		af := int((p.From.Reg >> 5) & 15)
@@ -5142,7 +5404,7 @@ func (c *ctxt7) asmout(p *obj.Prog, o *Optab, out []uint32) {
 		o1 = q<<30 | 0xe<<24 | len<<13
 		o1 |= (uint32(rf&31) << 16) | uint32(offset&31)<<5 | uint32(rt&31)
 
-	case 101: // FOMVQ/FMOVD $vcon, Vd -> load from constant pool.
+	case 101: // VMOVQ $vcon1, $vcon2, Vd or VMOVD|VMOVS $vcon, Vd -> FMOVQ/FMOVD/FMOVS pool(PC), Vd: load from constant pool.
 		o1 = c.omovlit(p.As, p, &p.From, int(p.To.Reg))
 
 	case 102: /* vushll, vushll2, vuxtl, vuxtl2 */
@@ -5157,11 +5419,7 @@ func (c *ctxt7) asmout(p *obj.Prog, o *Optab, out []uint32) {
 			shift = 0
 		}
 
-		pack := func(q, x, y uint8) uint32 {
-			return uint32(q)<<16 | uint32(x)<<8 | uint32(y)
-		}
-
-		var Q uint8 = uint8(o1>>30) & 1
+		Q := (o1 >> 30) & 1
 		var immh, width uint8
 		switch pack(Q, af, at) {
 		case pack(0, ARNG_8B, ARNG_8H):
@@ -5183,6 +5441,113 @@ func (c *ctxt7) asmout(p *obj.Prog, o *Optab, out []uint32) {
 			c.ctxt.Diag("shift amount out of range: %v\n", p)
 		}
 		o1 |= uint32(immh)<<19 | uint32(shift)<<16 | uint32(rf&31)<<5 | uint32(p.To.Reg&31)
+
+	case 103: /* VEOR3/VBCAX Va.B16, Vm.B16, Vn.B16, Vd.B16 */
+		ta := (p.From.Reg >> 5) & 15
+		tm := (p.Reg >> 5) & 15
+		td := (p.To.Reg >> 5) & 15
+		tn := ((p.GetFrom3().Reg) >> 5) & 15
+
+		if ta != tm || ta != tn || ta != td || ta != ARNG_16B {
+			c.ctxt.Diag("invalid arrangement: %v", p)
+			break
+		}
+
+		o1 = c.oprrr(p, p.As)
+		ra := int(p.From.Reg)
+		rm := int(p.Reg)
+		rn := int(p.GetFrom3().Reg)
+		rd := int(p.To.Reg)
+		o1 |= uint32(rm&31)<<16 | uint32(ra&31)<<10 | uint32(rn&31)<<5 | uint32(rd)&31
+
+	case 104: /* vxar $imm4, Vm.<T>, Vn.<T>, Vd.<T> */
+		af := ((p.GetFrom3().Reg) >> 5) & 15
+		at := (p.To.Reg >> 5) & 15
+		a := (p.Reg >> 5) & 15
+		index := int(p.From.Offset)
+
+		if af != a || af != at {
+			c.ctxt.Diag("invalid arrangement: %v", p)
+			break
+		}
+
+		if af != ARNG_2D {
+			c.ctxt.Diag("invalid arrangement, should be D2: %v", p)
+			break
+		}
+
+		if index < 0 || index > 63 {
+			c.ctxt.Diag("illegal offset: %v", p)
+		}
+
+		o1 = c.opirr(p, p.As)
+		rf := (p.GetFrom3().Reg) & 31
+		rt := (p.To.Reg) & 31
+		r := (p.Reg) & 31
+
+		o1 |= (uint32(r&31) << 16) | (uint32(index&63) << 10) | (uint32(rf&31) << 5) | uint32(rt&31)
+
+	case 105: /* vuaddw{2} Vm.<Tb>, Vn.<Ta>, Vd.<Ta> */
+		af := uint8((p.From.Reg >> 5) & 15)
+		at := uint8((p.To.Reg >> 5) & 15)
+		a := uint8((p.Reg >> 5) & 15)
+		if at != a {
+			c.ctxt.Diag("invalid arrangement: %v", p)
+			break
+		}
+
+		var Q, size uint32
+		if p.As == AVUADDW2 {
+			Q = 1
+		}
+		switch pack(Q, at, af) {
+		case pack(0, ARNG_8H, ARNG_8B), pack(1, ARNG_8H, ARNG_16B):
+			size = 0
+		case pack(0, ARNG_4S, ARNG_4H), pack(1, ARNG_4S, ARNG_8H):
+			size = 1
+		case pack(0, ARNG_2D, ARNG_2S), pack(1, ARNG_2D, ARNG_4S):
+			size = 2
+		default:
+			c.ctxt.Diag("operand mismatch: %v\n", p)
+		}
+
+		o1 = c.oprrr(p, p.As)
+		rf := int((p.From.Reg) & 31)
+		rt := int((p.To.Reg) & 31)
+		r := int((p.Reg) & 31)
+		o1 |= ((Q & 1) << 30) | ((size & 3) << 22) | (uint32(rf&31) << 16) | (uint32(r&31) << 5) | uint32(rt&31)
+
+	case 106: // CASPx (Rs, Rs+1), (Rb), (Rt, Rt+1)
+		rs := p.From.Reg
+		rt := p.GetTo2().Reg
+		rb := p.To.Reg
+		rs1 := int16(p.From.Offset)
+		rt1 := int16(p.GetTo2().Offset)
+
+		enc, ok := atomicCASP[p.As]
+		if !ok {
+			c.ctxt.Diag("invalid CASP-like atomic instructions: %v\n", p)
+		}
+		// for CASPx-like instructions, Rs<0> != 1 && Rt<0> != 1
+		switch {
+		case rs&1 != 0:
+			c.ctxt.Diag("source register pair must start from even register: %v\n", p)
+			break
+		case rt&1 != 0:
+			c.ctxt.Diag("destination register pair must start from even register: %v\n", p)
+			break
+		case rs != rs1-1:
+			c.ctxt.Diag("source register pair must be contiguous: %v\n", p)
+			break
+		case rt != rt1-1:
+			c.ctxt.Diag("destination register pair must be contiguous: %v\n", p)
+			break
+		}
+		// rt can't be sp.
+		if rt == REG_RSP {
+			c.ctxt.Diag("illegal destination register: %v\n", p)
+		}
+		o1 |= enc | uint32(rs&31)<<16 | uint32(rb&31)<<5 | uint32(rt&31)
 	}
 	out[0] = o1
 	out[1] = o2
@@ -5758,6 +6123,9 @@ func (c *ctxt7) oprrr(p *obj.Prog, a obj.As) uint32 {
 	case AVAND:
 		return 7<<25 | 1<<21 | 7<<10
 
+	case AVBCAX:
+		return 0xCE<<24 | 1<<21
+
 	case AVCMEQ:
 		return 1<<29 | 0x71<<21 | 0x23<<10
 
@@ -5773,11 +6141,17 @@ func (c *ctxt7) oprrr(p *obj.Prog, a obj.As) uint32 {
 	case AVEOR:
 		return 1<<29 | 0x71<<21 | 7<<10
 
+	case AVEOR3:
+		return 0xCE << 24
+
 	case AVORR:
 		return 7<<25 | 5<<21 | 7<<10
 
 	case AVREV16:
 		return 3<<26 | 2<<24 | 1<<21 | 3<<11
+
+	case AVRAX1:
+		return 0xCE<<24 | 3<<21 | 1<<15 | 3<<10
 
 	case AVREV32:
 		return 11<<26 | 2<<24 | 1<<21 | 1<<11
@@ -5827,11 +6201,20 @@ func (c *ctxt7) oprrr(p *obj.Prog, a obj.As) uint32 {
 	case AVCMTST:
 		return 0xE<<24 | 1<<21 | 0x23<<10
 
+	case AVUMAX:
+		return 1<<29 | 7<<25 | 1<<21 | 0x19<<10
+
+	case AVUMIN:
+		return 1<<29 | 7<<25 | 1<<21 | 0x1b<<10
+
 	case AVUZP1:
 		return 7<<25 | 3<<11
 
 	case AVUZP2:
 		return 7<<25 | 1<<14 | 3<<11
+
+	case AVUADDW, AVUADDW2:
+		return 0x17<<25 | 1<<21 | 1<<12
 	}
 
 	c.ctxt.Diag("%v: bad rrr %d %v", p, a, a)
@@ -6031,11 +6414,23 @@ func (c *ctxt7) opirr(p *obj.Prog, a obj.As) uint32 {
 	case AVSRI:
 		return 0x5E<<23 | 17<<10
 
+	case AVSLI:
+		return 0x5E<<23 | 21<<10
+
 	case AVUSHLL, AVUXTL:
 		return 1<<29 | 15<<24 | 0x29<<10
 
 	case AVUSHLL2, AVUXTL2:
 		return 3<<29 | 15<<24 | 0x29<<10
+
+	case AVXAR:
+		return 0xCE<<24 | 1<<23
+
+	case AVUSRA:
+		return 1<<29 | 15<<24 | 5<<10
+
+	case APRFM:
+		return 0xf9<<24 | 2<<22
 	}
 
 	c.ctxt.Diag("%v: bad irr %v", p, a)
@@ -6089,11 +6484,10 @@ func (c *ctxt7) opbit(p *obj.Prog, a obj.As) uint32 {
 func (c *ctxt7) opxrrr(p *obj.Prog, a obj.As, extend bool) uint32 {
 	extension := uint32(0)
 	if !extend {
-		switch a {
-		case AADD, ACMN, AADDS, ASUB, ACMP, ASUBS:
+		if isADDop(a) {
 			extension = LSL0_64
-
-		case AADDW, ACMNW, AADDSW, ASUBW, ACMPW, ASUBSW:
+		}
+		if isADDWop(a) {
 			extension = LSL0_32
 		}
 	}
@@ -6430,7 +6824,7 @@ func (c *ctxt7) opstore(p *obj.Prog, a obj.As) uint32 {
 }
 
 /*
- * load/store register (unsigned immediate) C3.3.13
+ * load/store register (scaled 12-bit unsigned immediate) C3.3.13
  *	these produce 64-bit values (when there's an option)
  */
 func (c *ctxt7) olsr12u(p *obj.Prog, o int32, v int32, b int, r int) uint32 {
@@ -6440,49 +6834,12 @@ func (c *ctxt7) olsr12u(p *obj.Prog, o int32, v int32, b int, r int) uint32 {
 	o |= (v & 0xFFF) << 10
 	o |= int32(b&31) << 5
 	o |= int32(r & 31)
+	o |= 1 << 24
 	return uint32(o)
 }
 
-func (c *ctxt7) opldr12(p *obj.Prog, a obj.As) uint32 {
-	switch a {
-	case AMOVD:
-		return LDSTR12U(3, 0, 1) /* imm12<<10 | Rn<<5 | Rt */
-
-	case AMOVW:
-		return LDSTR12U(2, 0, 2)
-
-	case AMOVWU:
-		return LDSTR12U(2, 0, 1)
-
-	case AMOVH:
-		return LDSTR12U(1, 0, 2)
-
-	case AMOVHU:
-		return LDSTR12U(1, 0, 1)
-
-	case AMOVB:
-		return LDSTR12U(0, 0, 2)
-
-	case AMOVBU:
-		return LDSTR12U(0, 0, 1)
-
-	case AFMOVS:
-		return LDSTR12U(2, 1, 1)
-
-	case AFMOVD:
-		return LDSTR12U(3, 1, 1)
-	}
-
-	c.ctxt.Diag("bad opldr12 %v\n%v", a, p)
-	return 0
-}
-
-func (c *ctxt7) opstr12(p *obj.Prog, a obj.As) uint32 {
-	return LD2STR(c.opldr12(p, a))
-}
-
 /*
- * load/store register (unscaled immediate) C3.3.12
+ * load/store register (unscaled 9-bit signed immediate) C3.3.12
  */
 func (c *ctxt7) olsr9s(p *obj.Prog, o int32, v int32, b int, r int) uint32 {
 	if v < -256 || v > 255 {
@@ -6494,76 +6851,58 @@ func (c *ctxt7) olsr9s(p *obj.Prog, o int32, v int32, b int, r int) uint32 {
 	return uint32(o)
 }
 
-func (c *ctxt7) opldr9(p *obj.Prog, a obj.As) uint32 {
-	switch a {
-	case AMOVD:
-		return LDSTR9S(3, 0, 1) /* simm9<<12 | Rn<<5 | Rt */
-
-	case AMOVW:
-		return LDSTR9S(2, 0, 2)
-
-	case AMOVWU:
-		return LDSTR9S(2, 0, 1)
-
-	case AMOVH:
-		return LDSTR9S(1, 0, 2)
-
-	case AMOVHU:
-		return LDSTR9S(1, 0, 1)
-
-	case AMOVB:
-		return LDSTR9S(0, 0, 2)
-
-	case AMOVBU:
-		return LDSTR9S(0, 0, 1)
-
-	case AFMOVS:
-		return LDSTR9S(2, 1, 1)
-
-	case AFMOVD:
-		return LDSTR9S(3, 1, 1)
+// store(immediate)
+// scaled 12-bit unsigned immediate offset.
+// unscaled 9-bit signed immediate offset.
+// pre/post-indexed store.
+// and the 12-bit and 9-bit are distinguished in olsr12u and oslr9s.
+func (c *ctxt7) opstr(p *obj.Prog, a obj.As) uint32 {
+	enc := c.opldr(p, a)
+	switch p.As {
+	case AFMOVQ:
+		enc = enc &^ (1 << 22)
+	default:
+		enc = LD2STR(enc)
 	}
-
-	c.ctxt.Diag("bad opldr9 %v\n%v", a, p)
-	return 0
+	return enc
 }
 
-func (c *ctxt7) opstr9(p *obj.Prog, a obj.As) uint32 {
-	return LD2STR(c.opldr9(p, a))
-}
-
-func (c *ctxt7) opldrpp(p *obj.Prog, a obj.As) uint32 {
+// load(immediate)
+// scaled 12-bit unsigned immediate offset.
+// unscaled 9-bit signed immediate offset.
+// pre/post-indexed load.
+// and the 12-bit and 9-bit are distinguished in olsr12u and oslr9s.
+func (c *ctxt7) opldr(p *obj.Prog, a obj.As) uint32 {
 	switch a {
 	case AMOVD:
-		return 3<<30 | 7<<27 | 0<<26 | 0<<24 | 1<<22 /* simm9<<12 | Rn<<5 | Rt */
+		return LDSTR(3, 0, 1) /* simm9<<12 | Rn<<5 | Rt */
 
 	case AMOVW:
-		return 2<<30 | 7<<27 | 0<<26 | 0<<24 | 2<<22
+		return LDSTR(2, 0, 2)
 
 	case AMOVWU:
-		return 2<<30 | 7<<27 | 0<<26 | 0<<24 | 1<<22
+		return LDSTR(2, 0, 1)
 
 	case AMOVH:
-		return 1<<30 | 7<<27 | 0<<26 | 0<<24 | 2<<22
+		return LDSTR(1, 0, 2)
 
 	case AMOVHU:
-		return 1<<30 | 7<<27 | 0<<26 | 0<<24 | 1<<22
+		return LDSTR(1, 0, 1)
 
 	case AMOVB:
-		return 0<<30 | 7<<27 | 0<<26 | 0<<24 | 2<<22
+		return LDSTR(0, 0, 2)
 
 	case AMOVBU:
-		return 0<<30 | 7<<27 | 0<<26 | 0<<24 | 1<<22
+		return LDSTR(0, 0, 1)
 
 	case AFMOVS:
-		return 2<<30 | 7<<27 | 1<<26 | 0<<24 | 1<<22
+		return LDSTR(2, 1, 1)
 
 	case AFMOVD:
-		return 3<<30 | 7<<27 | 1<<26 | 0<<24 | 1<<22
+		return LDSTR(3, 1, 1)
 
-	case APRFM:
-		return 0xf9<<24 | 2<<22
-
+	case AFMOVQ:
+		return LDSTR(0, 1, 3)
 	}
 
 	c.ctxt.Diag("bad opldr %v\n%v", a, p)
@@ -6672,15 +7011,15 @@ func (c *ctxt7) omovlit(as obj.As, p *obj.Prog, a *obj.Addr, dr int) uint32 {
 	} else {
 		fp, w := 0, 0
 		switch as {
-		case AFMOVS:
+		case AFMOVS, AVMOVS:
 			fp = 1
 			w = 0 /* 32-bit SIMD/FP */
 
-		case AFMOVD:
+		case AFMOVD, AVMOVD:
 			fp = 1
 			w = 1 /* 64-bit SIMD/FP */
 
-		case AFMOVQ:
+		case AVMOVQ:
 			fp = 1
 			w = 2 /* 128-bit SIMD/FP */
 
@@ -6716,8 +7055,8 @@ func (c *ctxt7) omovlit(as obj.As, p *obj.Prog, a *obj.Addr, dr int) uint32 {
 
 // load a constant (MOVCON or BITCON) in a into rt
 func (c *ctxt7) omovconst(as obj.As, p *obj.Prog, a *obj.Addr, rt int) (o1 uint32) {
-	if cls := oclass(a); cls == C_BITCON || cls == C_ABCON || cls == C_ABCON0 {
-		// or $bitcon, REGZERO, rt
+	if cls := oclass(a); (cls == C_BITCON || cls == C_ABCON || cls == C_ABCON0) && rt != REGZERO {
+		// or $bitcon, REGZERO, rt. rt can't be ZR.
 		mode := 64
 		var as1 obj.As
 		switch as {
@@ -6949,7 +7288,7 @@ func (c *ctxt7) opextr(p *obj.Prog, a obj.As, v int32, rn int, rm int, rt int) u
 	return o
 }
 
-/* genrate instruction encoding for LDP/LDPW/LDPSW/STP/STPW */
+/* genrate instruction encoding for ldp and stp series */
 func (c *ctxt7) opldpstp(p *obj.Prog, o *Optab, vo int32, rbase, rl, rh, ldp uint32) uint32 {
 	wback := false
 	if o.scond == C_XPOST || o.scond == C_XPRE {
@@ -6962,30 +7301,36 @@ func (c *ctxt7) opldpstp(p *obj.Prog, o *Optab, vo int32, rbase, rl, rh, ldp uin
 		if wback == true {
 			c.checkUnpredictable(p, false, true, p.To.Reg, p.From.Reg, int16(p.From.Offset))
 		}
-	case AFLDPD, AFLDPS:
+	case AFLDPD, AFLDPQ, AFLDPS:
 		c.checkUnpredictable(p, true, false, p.From.Reg, p.To.Reg, int16(p.To.Offset))
 	}
 	var ret uint32
 	// check offset
 	switch p.As {
+	case AFLDPQ, AFSTPQ:
+		if vo < -1024 || vo > 1008 || vo%16 != 0 {
+			c.ctxt.Diag("invalid offset %v\n", p)
+		}
+		vo /= 16
+		ret = 2<<30 | 1<<26
 	case AFLDPD, AFSTPD:
 		if vo < -512 || vo > 504 || vo%8 != 0 {
 			c.ctxt.Diag("invalid offset %v\n", p)
 		}
 		vo /= 8
 		ret = 1<<30 | 1<<26
-	case ALDP, ASTP:
-		if vo < -512 || vo > 504 || vo%8 != 0 {
-			c.ctxt.Diag("invalid offset %v\n", p)
-		}
-		vo /= 8
-		ret = 2 << 30
 	case AFLDPS, AFSTPS:
 		if vo < -256 || vo > 252 || vo%4 != 0 {
 			c.ctxt.Diag("invalid offset %v\n", p)
 		}
 		vo /= 4
 		ret = 1 << 26
+	case ALDP, ASTP:
+		if vo < -512 || vo > 504 || vo%8 != 0 {
+			c.ctxt.Diag("invalid offset %v\n", p)
+		}
+		vo /= 8
+		ret = 2 << 30
 	case ALDPW, ASTPW:
 		if vo < -256 || vo > 252 || vo%4 != 0 {
 			c.ctxt.Diag("invalid offset %v\n", p)
@@ -7003,7 +7348,7 @@ func (c *ctxt7) opldpstp(p *obj.Prog, o *Optab, vo int32, rbase, rl, rh, ldp uin
 	}
 	// check register pair
 	switch p.As {
-	case AFLDPD, AFLDPS, AFSTPD, AFSTPS:
+	case AFLDPQ, AFLDPD, AFLDPS, AFSTPQ, AFSTPD, AFSTPS:
 		if rl < REG_F0 || REG_F31 < rl || rh < REG_F0 || REG_F31 < rh {
 			c.ctxt.Diag("invalid register pair %v\n", p)
 		}
@@ -7056,10 +7401,13 @@ func (c *ctxt7) maskOpvldvst(p *obj.Prog, o1 uint32) uint32 {
  */
 func movesize(a obj.As) int {
 	switch a {
-	case AMOVD:
+	case AFMOVQ:
+		return 4
+
+	case AMOVD, AFMOVD:
 		return 3
 
-	case AMOVW, AMOVWU:
+	case AMOVW, AMOVWU, AFMOVS:
 		return 2
 
 	case AMOVH, AMOVHU:
@@ -7067,12 +7415,6 @@ func movesize(a obj.As) int {
 
 	case AMOVB, AMOVBU:
 		return 0
-
-	case AFMOVS:
-		return 2
-
-	case AFMOVD:
-		return 3
 
 	default:
 		return -1
@@ -7137,4 +7479,9 @@ func (c *ctxt7) encRegShiftOrExt(a *obj.Addr, r int16) uint32 {
 	}
 
 	return 0
+}
+
+// pack returns the encoding of the "Q" field and two arrangement specifiers.
+func pack(q uint32, arngA, arngB uint8) uint32 {
+	return uint32(q)<<16 | uint32(arngA)<<8 | uint32(arngB)
 }

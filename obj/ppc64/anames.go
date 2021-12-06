@@ -2,7 +2,7 @@
 
 package ppc64
 
-import "github.com/twitchyliquid64/golang-asm/obj"
+import "github.com/wdvxdr1123/golang-asm/obj"
 
 var Anames = []string{
 	obj.A_ARCHSPECIFIC: "ADD",
@@ -329,6 +329,8 @@ var Anames = []string{
 	"SRAD",
 	"SRADCC",
 	"SRDCC",
+	"EXTSWSLI",
+	"EXTSWSLICC",
 	"STDCCC",
 	"TD",
 	"DWORD",
@@ -611,5 +613,6 @@ var Anames = []string{
 	"XVCVSXWSP",
 	"XVCVUXDSP",
 	"XVCVUXWSP",
+	"PNOP",
 	"LAST",
 }
